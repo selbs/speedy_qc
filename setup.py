@@ -31,10 +31,10 @@ setup(
         "pip==23.0.1",
         "pydicom==2.3.1",
         "pylibjpeg==1.4.0",
-        "numpy>=1.21.0,",
+        "numpy>=1.21.0",
         "PyQt5==5.15.9",
         "python-gdcm==3.0.21",
         "QDarkStyle==3.0.2",
-        "setuptools-scm==7.0.4",
-    ],
+        "setuptools-scm==7.0.4"
+    ]
 )
