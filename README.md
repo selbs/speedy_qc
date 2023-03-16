@@ -25,6 +25,11 @@ Run the following command in the command line:
 speedy_qc
 ```
 
+Customisation
+-------------
+
+List the required checkboxes in the checkboxes.yml file and the checkboxes will be automatically updated.
+
 Creating an Executable
 ----------------------
 
