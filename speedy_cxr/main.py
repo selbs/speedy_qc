@@ -2,231 +2,445 @@ import os
 import sys
 import pydicom
 import numpy as np
-from PyQt5.QtWidgets import QApplication, QLabel, QMainWindow, QSizePolicy, QScrollArea, QPushButton, QHBoxLayout, \
-    QVBoxLayout, QSlider, QWidget, QFileDialog, QCheckBox, QToolBar, QAction, QStyle, QSpacerItem, QMessageBox
-from PyQt5.QtGui import QImage, QPixmap, QPainter
-from PyQt5.QtCore import Qt, QSettings, pyqtSignal
+from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QSizePolicy, QScrollArea, QPushButton, QHBoxLayout, \
+    QVBoxLayout, QSlider, QWidget, QFileDialog, QCheckBox, QToolBar, QStyle, QSpacerItem, QMessageBox, QDialog, \
+    QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QToolButton, QTextEdit, QMenu, QWidgetAction, QMenuBar, \
+    QTreeView
+from PyQt6.QtGui import QImage, QPixmap, QPainter, QAction, QIcon, QTransform, QImage, QPixmap, QNativeGestureEvent, \
+    QTouchEvent, QWheelEvent
+from PyQt6.QtCore import Qt, QSettings, pyqtSignal, QRectF, QEvent, QPoint, QPointF, pyqtSlot
 from pydicom.pixel_data_handlers.util import apply_modality_lut, apply_voi_lut
 import csv
+from qimage2ndarray import array2qimage
+from qt_material import apply_stylesheet, get_theme
+import qtawesome as qta
+import yaml
+from PyQt6.QtCore import QTimer
+import datetime
+import shutil
 
 
-class WindowedLabel(QLabel):
+class CustomGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
-        super().__init__(parent)
-        self._image = None
-        self._window_center = None
-        self._window_width = None
+        super().__init__()
+        self.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
+        self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
+        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        self.previous_size = None
+        self.zoom = 1.0
+        # self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
 
-    image_updated = pyqtSignal()
+        self.touch_points = []
 
-    def set_image(self, image):
-        self._image = image
-        self.update()
+        if isinstance(parent, MainWindow):
+            parent.resized.connect(self.on_main_window_resized)
 
-    def set_window_center(self, value):
-        self._window_center = value
-        self.update()
+    def zoom_in(self):
+        factor = 1.2
+        self.zoom *= factor
+        self.scale(factor, factor)
 
-    def paintEvent(self, event):
-        if self._image is None:
-            super().paintEvent(event)
-            return
+    def zoom_out(self):
+        factor = 0.8
+        self.zoom /= factor
+        self.scale(factor, factor)
 
-        if self._window_width is None:
-            self._window_width = 255
-        if self._window_center is None:
-            self._window_center = 127
-
-        # Apply windowing transformation to the image
-        lo = self._window_center - self._window_width // 2
-        hi = self._window_center + self._window_width // 2
-        image = np.clip(self._image, lo, hi)
-        image = (image - lo) * 255 // (hi - lo)
-        image = np.uint8(image)
-
-        # Convert the image to a QImage and display it
-        height, width = image.shape
-        bytes_per_line = width
-        qimage = QImage(image.data.tobytes(), width, height, bytes_per_line, QImage.Format_Grayscale8)
-        pixmap = QPixmap.fromImage(qimage)
-        painter = QPainter(pixmap)
-        # painter.drawText(10, 20, f"Window Center: {self._window_center}")
-        painter.end()
-        self.setPixmap(pixmap)
-        self.image_updated.emit()
-
-        # Call the base class method
-        super().paintEvent(event)
+    def on_main_window_resized(self):
+        if self.scene() and self.scene().items():
+            self.fitInView(self.scene().items()[0].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            self.scale(self.zoom, self.zoom)
 
 
 class MainWindow(QMainWindow):
+    resized = pyqtSignal()
+
     def __init__(self, dir_path):
         super().__init__()
+        # Set the initial window size
+        self.resize(1200, 900)
+        # Set the minimum window size
+        # self.setMinimumSize(500, 300)
         self.default_directory = '.'
-        self.zoom = 1.0
         self.current_index = 0
-        self.nav_toolbar = QToolBar(self)
-        next_icon = self.style().standardIcon(QStyle.SP_ArrowForward)
-        prev_icon = self.style().standardIcon(QStyle.SP_ArrowBack)
-        self.prevAction = QAction(prev_icon, "&Back", self)
-        self.nextAction = QAction(next_icon, "&Next", self)
-        self.window_center_label = QLabel("Window Center:")
-        self.window_center_slider = QSlider(Qt.Horizontal)
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
+
+        self.image_view = CustomGraphicsView(self)
+        self.image_view.resize(self.size())
+
+        qta.set_defaults(
+            color=get_theme("dark_blue.xml")['primaryLightColor'],
+            color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
+            color_active=get_theme("dark_blue.xml")['primaryColor'],
+        )
+
+        # Icons
+        self.icons = {
+            'save': qta.icon("mdi.content-save-all"),
+            'next': qta.icon("mdi.arrow-right-circle"),
+            'prev': qta.icon("mdi.arrow-left-circle"),
+            'ww': qta.icon("mdi.arrow-expand-horizontal"),
+            'wc': qta.icon("mdi.format-horizontal-align-center"),
+            'inv': qta.icon("mdi.invert-colors"),
+            'rot_right': qta.icon("mdi.rotate-right"),
+            'rot_left': qta.icon("mdi.rotate-left"),
+            'zoom_in': qta.icon("mdi.magnify-plus"),
+            'zoom_out': qta.icon("mdi.magnify-minus"),
+            'exit': qta.icon("mdi.exit-to-app"),
+            'reset_win': qta.icon("mdi.credit-card-refresh"),
+            'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
+            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2)
+        }
 
         self.dir_path = dir_path
         self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
+        self.findings = self.open_findings_yml()
         self.viewed_values = {f: False for f in self.file_list}
+        self.notes = {f: "" for f in self.file_list}
+        self.checkbox_values = {f: {finding: False for finding in self.findings} for f in self.file_list}
+        self.checkboxes = {}
 
         # Load the checkbox values from CSV file
-        self.checkbox_values = {}
-        loaded = self.load_from_csv()
-        if loaded:
+        self.loaded_file, self.loaded = self.load_from_csv()
+        if self.loaded:
             self.restore_from_saved_state()
 
         # Load the current DICOM file
         self.load_file()
 
-        # Create a WindowedLabel to display the image
-        self.label = WindowedLabel(self)
-        self.label.setScaledContents(True)
-        self.label.set_image(self.image)
-
         main_layout = QVBoxLayout()
-        main_layout.addLayout(self.create_image_layout())
-        # Create a scroll area widget and set its layout
-        scroll_widget = QWidget(self)
-        scroll_widget.setLayout(main_layout)
-        # Create a scroll area and add the scroll widget to it
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidget(scroll_widget)
-        scroll_area.setWidgetResizable(True)
-        self.setCentralWidget(scroll_area)
-        self.setMinimumSize(self.label.size())
 
-        self.create_file_toolbar()
+        self.image_scene = QGraphicsScene(self)
+        # Create a QGraphicsPixmapItem to hold the image
+        self.pixmap_item = QGraphicsPixmapItem()
+        self.image_scene.addItem(self.pixmap_item)
+        self.image_view.setScene(self.image_scene)
 
-        self.create_window_slider()
-        # main_layout.addLayout(self.create_window_slider())
+        main_layout.addWidget(self.image_view)
+        self.load_image()
+
+        central_widget = QWidget(self)
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+
+        # Create the navigation toolbar
+        self.file_tool_bar = QToolBar(self)
+        self.exitAction = QAction(self.icons['exit'], "&Exit", self)
+        self.file_tool_bar.addAction(self.exitAction)
+        self.saveAction = QAction(self.icons['save'], "&Save", self)
+        self.file_tool_bar.addAction(self.saveAction)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.file_tool_bar)
 
         self.checkbox_toolbar = QToolBar(self)
-        checkboxes = self.create_checkboxes()
-        self.set_checkbox_toolbar(checkboxes)
+        self.create_checkboxes()
+        self.set_checkbox_toolbar(self.checkboxes)
 
-        self.create_image_toolbar()
+        textbox = QTextEdit()
+        textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        textbox.textChanged.connect(self.on_text_changed)
+        text_action = QWidgetAction(self)
+        text_action.setDefaultWidget(textbox)
+        self.textbox_label = QLabel(self)
+        self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.textbox_label.setObjectName("Notes")
+        self.textbox_label.setText("NOTES:")
+        self.checkbox_toolbar.addWidget(self.textbox_label)
+        self.checkbox_toolbar.addAction(text_action)
 
-        self.create_navigation_toolbar()
+        # Create the image toolbar
+        self.image_toolbar = QToolBar(self)
+        self.invert_action = QAction(self.icons['inv'], "Invert Grayscale", self)
+        self.invert_action.triggered.connect(self.invert_grayscale)
+        self.image_toolbar.addAction(self.invert_action)
+        self.rotate_left_action = QAction(self.icons['rot_left'], "Rotate 90° Left", self)
+        self.rotate_left_action.triggered.connect(self.rotate_image_left)
+        self.image_toolbar.addAction(self.rotate_left_action)
+        self.rotate_right_action = QAction(self.icons['rot_right'], "Rotate 90° Right", self)
+        self.rotate_right_action.triggered.connect(self.rotate_image_right)
+        self.image_toolbar.addAction(self.rotate_right_action)
 
-        # Connect the keyboard events to navigate images
-        self.keyPressEvent = self.handle_key_press_event
+        # Create zoom buttons
+        self.zoom_in_action = QAction(self.icons['zoom_in'], "Zoom In", self)
+        self.zoom_out_action = QAction(self.icons['zoom_out'], "Zoom Out", self)
+        self.zoom_in_action.triggered.connect(self.image_view.zoom_in)
+        self.zoom_out_action.triggered.connect(self.image_view.zoom_out)
+        self.image_toolbar.addAction(self.zoom_in_action)
+        self.image_toolbar.addAction(self.zoom_out_action)
 
-        # Connect the sliders to update the windowing parameters
-        self.window_center_slider.valueChanged.connect(self.on_window_center_changed)
+        # Create sliders for window center
+        self.window_center_label = QAction(self.icons['wc'], "Window Center", self)
+        self.window_width_label = QAction(self.icons['ww'], "Window Width", self)
+        self.window_center_slider = QSlider(Qt.Orientation.Horizontal)
+        self.window_width_slider = QSlider(Qt.Orientation.Horizontal)
+        self.window_center_slider.setRange(1, 255)
+        self.window_center_slider.setValue(127)
+        self.window_width_slider.setRange(1, 450)
+        self.window_width_slider.setValue(255)
+
+        spacer = QSpacerItem(16, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
+        spacer_layout = QHBoxLayout()
+        spacer_widget = QWidget()
+        spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        spacer_widget.setLayout(spacer_layout)
+        spacer_widget.layout().addItem(spacer)
 
         # Connect the nav buttons to their functions and to reset the windowing parameters
-        self.nextAction.triggered.connect(self.reset_window_center_slider)
-        self.prevAction.triggered.connect(self.reset_window_center_slider)
+        self.image_toolbar.addSeparator()
+        self.reset_window_action = QAction(self.icons['reset_win'], "Reset Windowing", self)
+        self.reset_window_action.triggered.connect(self.reset_window_sliders)
+        self.image_toolbar.addAction(self.reset_window_action)
+
+        self.image_toolbar.addAction(self.window_center_label)
+        self.image_toolbar.addWidget(self.window_center_slider)
+        # self.image_toolbar.addWidget(spacer)
+        self.image_toolbar.addAction(self.window_width_label)
+        self.image_toolbar.addWidget(self.window_width_slider)
+        self.image_toolbar.addWidget(spacer_widget)
+
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.image_toolbar)
+
+        # Add buttons to navigate to previous and next image
+        self.nav_toolbar = QToolBar(self)
+        self.prevAction = QAction(self.icons['prev'], "&Back", self)
+        self.nextAction = QAction(self.icons['next'], "&Next", self)
+        self.nav_toolbar.addAction(self.prevAction)
+        self.nav_toolbar.addAction(self.nextAction)
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
+
+        # Connections between buttons / sliders and their functions
+        self.window_center_slider.valueChanged.connect(self.update_image)
+        self.window_width_slider.valueChanged.connect(self.update_image)
+        self.nextAction.triggered.connect(self.reset_window_sliders)
+        self.prevAction.triggered.connect(self.reset_window_sliders)
         self.prevAction.triggered.connect(self.previous_image)
         self.nextAction.triggered.connect(self.next_image)
+        self.saveAction.triggered.connect(self.save_to_csv)
+        self.exitAction.triggered.connect(self.close)
 
-        self.label.image_updated.connect(self.resize_after_image_changed)
+        self.init_menus()
 
+        # Backup progress just in case...
+        self.backup_files = None
+        self.timer = QTimer()
+        self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
+        self.timer.timeout.connect(self.backup_file)
+        self.timer.start()
 
-    def create_image_layout(self):
-        image_layout = QHBoxLayout()
-        image_layout.addWidget(self.label)
-        return image_layout
+    def backup_file(self, max_backups=5):
+
+        current_file_path = os.path.abspath(__file__)
+        backup_folder_path = os.path.dirname(os.path.dirname(current_file_path)) + "/backups"
+        # Create the backup folder if it doesn't exist
+        os.makedirs(backup_folder_path, exist_ok=True)
+
+        if self.backup_files is None:
+            self.backup_files = os.listdir(backup_folder_path)
+
+        # Get the current time as a string
+        current_time_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+
+        # Construct the backup file name
+        backup_file_name = f"auto_backup_{current_time_str}.bak"
+
+        # Get a list of existing backup files
+        backup_files = sorted(
+            [f for f in os.listdir(backup_folder_path) if os.path.isfile(os.path.join(backup_folder_path, f))])
+
+        # If the number of backup files exceeds the maximum, delete the oldest one
+        if len(backup_files) >= max_backups:
+            os.remove(os.path.join(backup_folder_path, backup_files[0]))
+            backup_files.pop(0)
+
+        # Copy the original file to the backup folder with the new name
+        self.save_csv(os.path.join(backup_folder_path, backup_file_name))
+
+        # Add the new backup file name to the list
+        self.backup_files.append(backup_file_name)
+
+        return backup_files
+
+    def wheelEvent(self, event: QWheelEvent):
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:  # check if Ctrl key is pressed
+            delta = event.angleDelta().y()  # get the scroll direction
+            if delta > 0:
+                # increase window width
+                self.window_width_slider.setValue(self.window_width_slider.value() + 10)
+            elif delta < 0:
+                # decrease window width
+                self.window_width_slider.setValue(self.window_width_slider.value() - 10)
+        elif event.modifiers() == Qt.KeyboardModifier.ShiftModifier:  # check if Shft key is pressed
+            delta = event.angleDelta().y()  # get the scroll direction
+            if delta > 0:
+                # increase window width
+                self.window_center_slider.setValue(self.window_center_slider.value() + 5)
+            elif delta < 0:
+                # decrease window width
+                self.window_center_slider.setValue(self.window_center_slider.value() - 5)
+        else:
+            super().wheelEvent(event)
+
+    def open_findings_yml(self):
+        with open('./checkboxes.yml', 'r') as file:
+            data = yaml.load(file, Loader=yaml.FullLoader)
+
+        return data['checkboxes']
+
+    def on_text_changed(self):
+        textbox = self.sender()
+        text_entered = textbox.toPlainText().replace("\n", " ").replace(",", ";")
+        self.notes[self.file_list[self.current_index]] = text_entered
+
+    def invert_grayscale(self):
+        if self.image is not None:
+            # Invert the image
+            inverted_image = 255 - self.image
+
+            # Update the QPixmap
+            qimage = array2qimage(inverted_image)
+            pixmap = QPixmap.fromImage(qimage)
+            self.pixmap_item.setPixmap(pixmap)
+
+            # Update the image attribute to store the inverted image
+            self.image = inverted_image
+
+    def rotate_image_right(self):
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+        # Rotate the image by 90 degrees and update the display
+        rotated_image = np.rot90(self.image)
+        qimage = array2qimage(rotated_image)
+        pixmap = QPixmap.fromImage(qimage)
+        self.pixmap_item.setPixmap(pixmap)
+        self.image = rotated_image
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+        self.update_image()
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+
+    def rotate_image_left(self):
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+        # Rotate the image by 90 degrees and update the display
+        rotated_image = np.rot90(self.image, k=-1)
+        qimage = array2qimage(rotated_image)
+        pixmap = QPixmap.fromImage(qimage)
+        self.pixmap_item.setPixmap(pixmap)
+        self.image = rotated_image
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+        self.update_image()
+        print(self.window_width_slider.value(), self.window_center_slider.value())
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.resized.emit()
+
+    def load_file(self):
+        file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
+
+        try:
+            # Read the DICOM file
+            ds = pydicom.dcmread(file_path)
+            self.image = ds.pixel_array
+            self.image = apply_modality_lut(self.image, ds)
+            self.image = apply_voi_lut(self.image.astype(int), ds, 0)
+
+            # Convert the pixel array to an 8-bit integer array
+            if ds.BitsStored != 8:
+                _min = np.amin(self.image)
+                _max = np.amax(self.image)
+                self.image = (self.image - _min) * 255.0 / (_max - _min)
+                self.image = np.uint8(self.image)
+        except Exception as e:
+            # Handle the exception (e.g. display an error message)
+            QMessageBox.critical(self, "Error", f"Failed to load file:\n{str(e)}", QMessageBox.StandardButton.Ok,
+                                 defaultButton=QMessageBox.StandardButton.Ok)
+            self.next_image(prev_failed=True)
+
+    def load_image(self):
+        # Load the image
+        qimage = array2qimage(self.image)
+        self.pixmap = QPixmap.fromImage(qimage)
+        self.pixmap_item.setPixmap(self.pixmap)
+
+    def update_image(self):
+        window_center = self.window_center_slider.value()
+        window_width = self.window_width_slider.value()
+
+        img = np.copy(self.image)
+        img = img.astype(np.float16)
+        img = (img - window_center + 0.5 * window_width) / window_width
+        img[img < 0] = 0
+        img[img > 1] = 1
+        img = (img * 255).astype(np.uint8)
+
+        # height, width = img.shape
+        # bytes_per_line = width
+        # qimage = QImage(img.data.tobytes(), width, height, bytes_per_line, QImage.Format.Format_Grayscale8)
+        qimage = array2qimage(img)
+        self.pixmap = QPixmap.fromImage(qimage)
+
+        self.pixmap_item.setPixmap(self.pixmap)
+        # self.image_view.setScene(self.pixmap_item)
+        # self.image_view.fitInView(self.pixmap_item.boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
     def create_checkboxes(self):
-        checkboxes = []
         filename = self.file_list[self.current_index]
-        # for i in range(5):
-        consolidation_checkbox = QCheckBox("Consolidation", self)
-        consolidation_checkbox.setObjectName("consolidation_checkbox")
-        consolidation_checkbox.setChecked(bool(self.checkbox_values.get(filename, False)))
-        consolidation_checkbox.stateChanged.connect(self.on_consolidation_changed)
-        checkboxes.append(consolidation_checkbox)
-        return checkboxes
+        for cbox in self.findings:
+            self.checkboxes[cbox] = QCheckBox(cbox, self)
+            self.checkboxes[cbox].setObjectName(cbox)
+            self.checkboxes[cbox].setChecked(bool(self.checkbox_values.get(filename, False).get(cbox, False)))
+            self.checkboxes[cbox].stateChanged.connect(self.on_checkbox_changed)
 
     def set_checkbox_toolbar(self, checkboxes):
-        checkbox_layout = QVBoxLayout()
-        viewed_label = QLabel(self)
-        viewed_label.setAlignment(Qt.AlignHCenter)
-        viewed_label.setObjectName("viewed_label")
-        viewed_label.setText("Prev. Viewed: " + ("Yes" if self.is_image_viewed() else "No"))
-        checkbox_layout.addWidget(viewed_label)
-        spacer_item = QSpacerItem(0, 25, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        checkbox_layout.addItem(spacer_item)
-        checkbox_heading = QLabel(self)
-        checkbox_heading.setAlignment(Qt.AlignHCenter)
-        checkbox_heading.setText("FINDINGS")
-        checkbox_layout.addWidget(checkbox_heading)
+        spacer_item = QSpacerItem(0, 5, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        spacer_widget = QWidget()
+        spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # spacer_widget.setMaximumHeight(25)
+        # spacer_widget.setMinimumHeight(25)
+        spacer_widget.setLayout(QHBoxLayout())
+        spacer_widget.layout().addItem(spacer_item)
+        self.checkbox_toolbar.addWidget(spacer_widget)
 
-        for checkbox in checkboxes:
+        self.viewed_label = QLabel(self)
+        self.viewed_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.viewed_label.setObjectName("viewed_label")
+        self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
+        self.checkbox_toolbar.addWidget(self.viewed_label)
+
+        self.viewed_icon = QLabel(self)
+        self.viewed_icon.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.viewed_icon.setPixmap(
+            QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
+                    else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
+        )
+        self.checkbox_toolbar.addWidget(self.viewed_icon)
+
+        # self.checkbox_toolbar.addWidget(spacer_widget)
+        spacer_widget = QWidget()
+        spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        # spacer_widget.setMaximumHeight(25)
+        # spacer_widget.setMinimumHeight(25)
+        spacer_widget.setLayout(QHBoxLayout())
+        spacer_widget.layout().addItem(spacer_item)
+        self.checkbox_toolbar.addWidget(spacer_widget)
+
+        checkbox_heading = QLabel(self)
+        checkbox_heading.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        checkbox_heading.setText("FINDINGS:")
+        self.checkbox_toolbar.addWidget(checkbox_heading)
+
+        checkbox_layout = QVBoxLayout()
+        for finding, checkbox in self.checkboxes.items():
             checkbox_layout.addWidget(checkbox)
 
+        checkbox_layout.addItem(spacer_item)
+        checkbox_layout.addItem(spacer_item)
         checkbox_widget = QWidget(self)
         checkbox_widget.setLayout(checkbox_layout)
-        checkbox_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        # checkbox_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         # Create a toolbar to hold the checkbox widget
         self.checkbox_toolbar.addWidget(checkbox_widget)
         self.checkbox_toolbar.setStyleSheet("QToolBar QLabel { font-weight: bold; }")
-        self.addToolBar(Qt.RightToolBarArea, self.checkbox_toolbar)
-
-    def create_window_slider(self):
-        # Create sliders for window center
-        self.window_center_slider.setValue(127)
-        self.window_center_slider.setRange(1, 255)
-        # slider_layout = QVBoxLayout()
-        # window_center_layout = QHBoxLayout()
-        # Create a label for the window center slider and add the label + slider to the layout
-        # window_center_layout.addWidget(self.window_center_label)
-        # window_center_layout.addWidget(self.window_center_slider)
-        # # Add the layout to the parent slider layout
-        # slider_layout.addLayout(window_center_layout)
-        # return slider_layout
-
-    def create_file_toolbar(self):
-        # Add a button to the toolbar to save checkbox values to CSV file
-        self.file_tool_bar = QToolBar(self)
-        saveicon = self.style().standardIcon(QStyle.SP_DialogSaveButton)
-        self.saveAction = QAction(saveicon, "&Save", self)
-        self.file_tool_bar.addAction(self.saveAction)
-        # exiticon = self.style().standardIcon(QStyle.SP_DialogCloseButton)
-        # self.exitAction = QAction(exiticon, "&Exit", self)
-        # self.file_tool_bar.addAction(self.exitAction)
-        self.addToolBar(Qt.TopToolBarArea, self.file_tool_bar)
-        self.saveAction.triggered.connect(self.save_to_csv)
-
-    def create_image_toolbar(self):
-        # Add buttons to invert the image and to rotate by 90 degrees
-        invert_button = QPushButton("Invert", self)
-        invert_button.clicked.connect(self.invert_image)
-        rotate_button = QPushButton("Rotate 90°", self)
-        rotate_button.clicked.connect(self.rotate_image)
-        self.image_toolbar = QToolBar(self)
-        self.image_toolbar.addWidget(invert_button)
-        self.image_toolbar.addWidget(rotate_button)
-        self.image_toolbar.addWidget(self.window_center_label)
-        self.image_toolbar.addWidget(self.window_center_slider)
-
-        # Create buttons for zoom in and zoom out
-        zoom_in_button = QPushButton("Zoom In", self)
-        zoom_in_button.clicked.connect(self.zoom_in)
-        zoom_out_button = QPushButton("Zoom Out", self)
-        zoom_out_button.clicked.connect(self.zoom_out)
-        # Add the buttons to the toolbar
-        self.image_toolbar.addWidget(zoom_in_button)
-        self.image_toolbar.addWidget(zoom_out_button)
-
-        self.addToolBar(Qt.TopToolBarArea, self.image_toolbar)
-
-    def create_navigation_toolbar(self):
-        # Add buttons to navigate to previous and next image
-        self.nav_toolbar = QToolBar(self)
-        self.nav_toolbar.addAction(self.prevAction)
-        self.nav_toolbar.addAction(self.nextAction)
-        self.addToolBar(Qt.TopToolBarArea, self.nav_toolbar)
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.checkbox_toolbar)
 
     def restore_from_saved_state(self):
         # Check for saved settings and restore last viewed file
@@ -244,30 +458,9 @@ class MainWindow(QMainWindow):
         else:
             self.file_list = unviewed_files + viewed_files
 
-    def reset_window_center_slider(self):
+    def reset_window_sliders(self):
         self.window_center_slider.setValue(127)
-
-    def load_file(self):
-        file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
-
-        try:
-            # Read the DICOM file
-            ds = pydicom.dcmread(file_path)
-            self.image = ds.pixel_array
-            self.image = apply_modality_lut(self.image, ds)
-            self.image = apply_voi_lut(self.image.astype(int), ds, 0)
-
-            # Convert the pixel array to an 8-bit integer array
-            if ds.BitsStored != 8:
-                _min = np.amin(self.image)
-                _max = np.amax(self.image)
-                self.image = (self.image - _min) * 255.0 / (_max - _min)
-                self.image = np.uint16(self.image)
-        except Exception as e:
-            # Handle the exception (e.g. display an error message)
-            QMessageBox.critical(self, "Error", f"Failed to load file:\n{str(e)}", QMessageBox.Ok,
-                                 setDefaultButton=QMessageBox.Ok)
-            self.next_image(prev_failed=True)
+        self.window_center_slider.setValue(255)
 
     def previous_image(self):
         self.viewed_values[self.file_list[self.current_index]] = True
@@ -280,20 +473,26 @@ class MainWindow(QMainWindow):
         if self.current_index < 0:
             self.current_index = len(self.file_list) - 1
         self.load_file()
+        self.load_image()
+        self.update_image()
 
-        self.zoom = 1.0
-        self.label._window_center = None
-        self.label._window_width = None
+        self.window_center_slider.setValue(127)
+        self.window_width_slider.setValue(255)
 
         # Update the image
-        self.label.set_image(self.image)
-        self.setWindowTitle(f"Dicom Viewer - {self.file_list[self.current_index]}")
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
+        self.image_view.zoom = 1
+        self.image_view.fitInView(self.image_view.scene().items()[0].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
         # Set the checkbox value for the current file
         self.set_checkbox_value()
 
-        viewed_label = self.findChild(QLabel, "viewed_label")
-        viewed_label.setText("Viewed: " + ("Yes" if self.is_image_viewed() else "No"))
+        # viewed_icon = self.findChild(QAction, "viewed_icon")
+        self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
+        self.viewed_icon.setPixmap(
+            QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
+                    else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
+        )
 
     def next_image(self, prev_failed=False):
         if not prev_failed:
@@ -308,6 +507,9 @@ class MainWindow(QMainWindow):
         while next_unviewed_index != self.current_index and self.viewed_values[self.file_list[next_unviewed_index]]:
             next_unviewed_index = (next_unviewed_index + 1) % len(self.file_list)
 
+        self.window_center_slider.setValue(127)
+        self.window_width_slider.setValue(255)
+
         if next_unviewed_index == self.current_index:
             # All images have been viewed
             QMessageBox.information(self, "All Images Viewed", "You have viewed all the images.")
@@ -319,77 +521,57 @@ class MainWindow(QMainWindow):
             self.current_index = next_unviewed_index
             self.load_file()
 
-        self.zoom = 1.0
-        self.label._window_center = None
-        self.label._window_width = None
+        self.load_image()
+        self.update_image()
 
         # Update the image display
-        self.label.set_image(self.image)
         self.setWindowTitle(f"Dicom Viewer - {self.file_list[self.current_index]}")
+        self.image_view.fitInView(self.image_view.scene().items()[0].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self.image_view.zoom = 1
 
         # Set the checkbox value for the current file
         self.set_checkbox_value()
 
-        viewed_label = self.findChild(QLabel, "viewed_label")
-        viewed_label.setText("Viewed: " + ("Yes" if self.is_image_viewed() else "No"))
+        self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
+        self.viewed_icon.setPixmap(
+            QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
+                    else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
+        )
 
     def is_image_viewed(self):
         filename = self.file_list[self.current_index]
         return self.viewed_values.get(filename, False)
 
-    def resize_after_image_changed(self):
-        # This slot is called when the image_changed signal is emitted
-        # It will resize the widget after the image has been changed
-        self.resizeEvent(None)
-
     def set_checkbox_value(self):
         # Get the checkbox widget for the current file
         filename = self.file_list[self.current_index]
-        consolidation_checkbox = self.findChild(QCheckBox, "consolidation_checkbox")
+        for cbox in self.findings:
+            # Set the checkbox value based on the stored value
+            checkbox_value = self.checkbox_values.get(filename, False)[cbox]
+            self.checkboxes[cbox].setChecked(checkbox_value)
 
-        # Set the checkbox value based on the stored value
-        checkbox_value = self.checkbox_values.get(filename, False)
-        consolidation_checkbox.setChecked(checkbox_value)
-
-    def invert_image(self):
-        # Invert the image and update the display
-        self.image = 255 - self.image
-        self.label.set_image(self.image)
-
-    def rotate_image(self):
-        # Rotate the image by 90 degrees and update the display
-        self.image = np.rot90(self.image)
-        self.label.set_image(self.image)
-
-    def on_window_center_changed(self, value):
-        self.label.set_window_center(value)
-
-    def resizeEvent(self, event):
-        if self.label.pixmap() is None:
-            return
-
-        # Calculate the optimal zoom level and set it to the WindowedLabel
-        image_size = self.label.pixmap().size()
-        # window_size = event.size()
-        window_size = self.size()
-        nav_toolbar_height = self.nav_toolbar.height()
-        image_toolbar_height = self.image_toolbar.height()
-        top_toolbar_height = nav_toolbar_height if nav_toolbar_height > image_toolbar_height else image_toolbar_height
-
-        self.zoom_level = min(
-            (window_size.width() - self.checkbox_toolbar.width() - 25) / image_size.width(),
-            (window_size.height() - top_toolbar_height - 25) / image_size.height()
-        ) * self.zoom
-        self.label.setFixedSize(self.zoom_level * image_size)
-
-        # Call the base class method
-        super().resizeEvent(event)
-
-    def handle_key_press_event(self, event):
-        if event.key() == Qt.Key_Left:
+    def keyPressEvent(self, event):
+        # Set up shortcuts
+        # if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+        if event.key() == Qt.Key.Key_B:
             self.previous_image()
-        elif event.key() == Qt.Key_Right:
+        elif event.key() == Qt.Key.Key_N:
             self.next_image()
+        elif event.key() == Qt.Key.Key_Minus or event.key() == Qt.Key.Key_Underscore:
+            self.image_view.zoom_out()
+        elif event.key() == Qt.Key.Key_Plus or event.key() == Qt.Key.Key_Equal:
+            self.image_view.zoom_in()
+        elif event.key() == Qt.Key.Key_I:
+            self.invert_grayscale()
+        elif event.key() == Qt.Key.Key_R:
+            self.rotate_image_right()
+        elif event.key() == Qt.Key.Key_L:
+            self.rotate_image_left()
+        elif event.key() == Qt.Key.Key_S:
+            self.save_to_csv()
+        elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            if event.key() == Qt.Key.Key_Q:
+                self.close()
         else:
             super().keyPressEvent(event)
 
@@ -400,47 +582,75 @@ class MainWindow(QMainWindow):
         settings.setValue('last_index', self.current_index)
 
     def save_to_csv(self):
+        if not self.loaded:
+            saved = self.save_as()
+            if not saved:
+                return False
+        else:
+            self.save_csv(self.loaded_file)
 
-        # file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", "CSV Files (*.csv)")
-        file_dialog = QFileDialog(self, 'Save Progress to CSV File', self.default_directory, 'CSV Files (*.csv)')
-        # file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)
-        file_dialog.setAcceptMode(QFileDialog.AcceptSave)
-        file_dialog.selectFile('*.csv')
+    def save_as(self):
+        file_dialog = QFileDialog()
+        # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
+        file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        file_dialog.setNameFilters(['CSV Files (*.csv)'])
+        file_dialog.setDefaultSuffix("csv")
         file_dialog.selectFile('untitled.csv')
-
-        if file_dialog.exec_() == QFileDialog.Accepted:
-            selected_file = file_dialog.getSaveFileName()
+        file_dialog.setWindowTitle("Save to CSV")
+        if file_dialog.exec() == QDialog.DialogCode.Accepted:
+            save_path = file_dialog.selectedFiles()[0]
+            self.save_csv(save_path)
             self.default_directory = file_dialog.directory().path()
-            with open(selected_file, 'w', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow(['filename', 'viewed', 'consolidation'])
+        if file_dialog.exec() == QDialog.DialogCode.Rejected:
+            return False
 
-                for filename in self.file_list:
+    def save_csv(self, selected_file):
+        with open(selected_file, 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(['filename', 'viewed', 'notes'] + list(self.checkboxes.keys()))
+
+            for filename in self.file_list:
+                cbox_out = {}
+                viewed = self.viewed_values.get(filename, False)
+                for cbox in list(self.checkboxes.keys()):
                     # Get the checkbox values for the file
-                    viewed = self.viewed_values.get(filename, False)
                     if viewed != "FAILED":
-                        consolidation = self.checkbox_values.get(filename, False)
+                        cbox_out[cbox] = self.checkbox_values.get(filename, False)
                     else:
-                        consolidation = "FAIL"
+                        cbox_out[cbox] = "FAIL"
 
-                    # Write the checkbox values to the CSV file
-                    writer.writerow([filename, viewed, consolidation])
+                notes = self.notes.get(filename, "")
+                # Write the checkbox values to the CSV file
+                writer.writerow([filename, viewed, notes] + list(cbox_out.values()))
 
     def load_from_csv(self):
         msg_box = QMessageBox()
         msg_box.setText("Do you want to load previous progress or create a new output file?")
-        load_button = msg_box.addButton("Load", QMessageBox.AcceptRole)
-        new_button = msg_box.addButton("New", QMessageBox.RejectRole)
+        load_button = QPushButton("Load")
+        msg_box.addButton(load_button, QMessageBox.ButtonRole.AcceptRole)
+        new_button = QPushButton("New")
+        # cancel_button = QPushButton("Cancel")
+        msg_box.addButton(new_button, QMessageBox.ButtonRole.RejectRole)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        # msg_box.addButton(cancel_button, QMessageBox.ButtonRole.RejectRole)
         msg_box.setDefaultButton(load_button)
-        msg_box.exec_()
+        msg_box.exec()
 
         if msg_box.clickedButton() == load_button:
-            file_dialog = QFileDialog(self, 'Open previously saved CSV File', self.default_directory, 'CSV Files (*.csv)')
-            # file_dialog.setOption(QFileDialog.DontUseNativeDialog, True)
-            file_dialog.setFileMode(QFileDialog.ExistingFile)
-            file_dialog.selectFile('*.csv')
+            file_dialog = QFileDialog(self, 'Open previously saved CSV File', self.default_directory,
+                                      'CSV Files (*.csv)')
+            # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+            file_dialog.setNameFilters(['CSV Files (*.csv)'])
+            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+            # Set the color of the directory items
+            # file_dialog.setStyleSheet(
+            #     f"""color: white;
+            #     background-color: {get_theme('dark_blue.xml')['primaryColor']};
+            #     """
+            # )
 
-            if file_dialog.exec_() == QFileDialog.Accepted:
+            if file_dialog.exec() == QDialog.DialogCode.Accepted:
                 selected_file = file_dialog.selectedFiles()[0]
                 self.default_directory = file_dialog.directory().path()
                 with open(selected_file, 'r') as file:
@@ -448,63 +658,146 @@ class MainWindow(QMainWindow):
                     next(reader)  # Skip the header row
                     for row in reader:
                         filename = row[0]
-                        viewed = row[1]
-                        viewed = True if viewed == 'True' else False
-                        consolidation = row[2]
-                        consolidation = True if consolidation == 'True' else False
-                        self.checkbox_values[filename] = consolidation
-                        self.viewed_values[filename] = viewed
-                return True
+                        self.viewed_values[filename] = row[1]
+                        self.notes[filename] = row[2]
+                        self.viewed_values[filename] = True if self.viewed_values[filename] == 'True' else False
+                        for i, cbox in enumerate(self.checkboxes.keys()):
+                            self.checkbox_values[filename][cbox] = row[3 + i]
+                            self.checkbox_values[filename][cbox] = True \
+                                if self.checkbox_values[filename][cbox] == 'True' else False
+                return selected_file, True
             else:
-                return False
+                return None, False
         elif msg_box.clickedButton() == new_button:
-            return False
+            return None, False
+        elif msg_box.StandardButton.Cancel:
+            sys.exit()
 
-    def on_consolidation_changed(self, state):
+    def on_checkbox_changed(self, state):
         filename = self.file_list[self.current_index]
-        self.checkbox_values[filename] = bool(state)
+        cbox = self.sender().text()
+        print(cbox, state)
+        self.checkbox_values[filename][cbox] = bool(state)
         settings = QSettings('MyApp', 'DicomViewer')
         settings.setValue(filename, state)
 
-    def zoom_in(self):
-        self.zoom *= 1.1
-        self.resizeEvent(None)
-
-    def zoom_out(self):
-        self.zoom /= 1.1
-        self.resizeEvent(None)
-
     def closeEvent(self, event):
         # Ask the user if they want to save before closing
-        reply = QMessageBox.question(self, 'Save Changes?', 'Do you want to save changes before closing?',
-                                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
-                                     setDefaultButton=QMessageBox.Cancel)
-        if reply == QMessageBox.Yes:
-            self.save_to_csv()
-        elif reply == QMessageBox.Cancel:
+
+        close_msg_box = QMessageBox()
+        close_msg_box.setIcon(QMessageBox.Icon.Question)
+        close_msg_box.setText("Save Changes?")
+        close_msg_box.setInformativeText("Do you want to save changes before closing?")
+        close_msg_box.setStandardButtons(QMessageBox.StandardButton.Yes |
+                                         QMessageBox.StandardButton.No |
+                                         QMessageBox.StandardButton.Cancel)
+        close_msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+
+        clicked_button = close_msg_box.exec()
+        if clicked_button == close_msg_box.StandardButton.Yes:
+            saved = self.save_to_csv()
+            if not saved:
+                event.ignore()
+                return
+        elif clicked_button == QMessageBox.StandardButton.Cancel:
             event.ignore()
             return
 
         event.accept()
 
+    def init_menus(self):
+        # create the file menu
+        file_menu = QMenu("&File", self)
+        save_action = QAction("&Save", self)
+        save_as_action = QAction("&Save As...", self)
+        menu_exit_action = QAction("&Exit", self)
+        file_menu.addAction(save_action)
+        file_menu.addAction(save_as_action)
+        file_menu.addSeparator()
+        file_menu.addAction(menu_exit_action)
+
+        # create the help menu
+        help_menu = QMenu("Help", self)
+        help_action = QAction("Help", self)
+        about_action = QAction("About", self)
+        help_menu.addAction(help_action)
+        help_menu.addAction(about_action)
+
+        # add the menus to the menu bar
+        menu_bar = QMenuBar(self)
+        menu_bar.addMenu(file_menu)
+        menu_bar.addMenu(help_menu)
+        self.setMenuBar(menu_bar)
+
+        save_action.triggered.connect(self.save_to_csv)
+        save_as_action.triggered.connect(self.save_as)
+        menu_exit_action.triggered.connect(self.close)
+
+        # about_action.triggered.connect(self.show_help)
+        about_action.triggered.connect(self.show_about)
+
+    # def show_help(self):
+    def show_about(self):
+        about_box = QMessageBox()
+        about_box.setWindowTitle("About...")
+        about_box.setIcon(QMessageBox.Icon.Information)
+        about_box.setText("Speedy QC for Desktop")
+        about_box.setInformativeText("MIT License\nCopyright (c) 2023, Ian Selby")
+
+        about_box.setDetailedText("Permission is hereby granted, free of charge, to any person obtaining a copy of "
+                                  "this software and associated documentation files (the 'Software'), to deal in "
+                                  "the Software without restriction, including without limitation the rights to "
+                                  "use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of "
+                                  "the Software, and to permit persons to whom the Software is furnished to do so, "
+                                  "subject to the following conditions:\n\nThe above copyright notice and this "
+                                  "permission notice shall be included in all copies or substantial portions of the "
+                                  "Software.\n\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, "
+                                  "EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF "
+                                  "MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO "
+                                  "EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, "
+                                  "DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, "
+                                  "ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
+                                  "DEALINGS IN THE SOFTWARE.")
+
+        about_box.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        about_box_label = QLabel()
+        about_box_label.setTextFormat(Qt.TextFormat.RichText)
+        about_box_label.setText("<a href='https://www.example.com'>www.example.com</a>")
+        about_box_label.setOpenExternalLinks(True)
+
+        about_box.layout().addWidget(about_box_label)
+
+        about_box.exec()
 
 def main():
     app = QApplication(sys.argv)
+
+    apply_stylesheet(app, theme='dark_blue.xml')
+
     load_msg_box = QMessageBox()
-    load_msg_box.setText("Welcome to Speedy CXR")
-    load_msg_box.setInformativeText("Please select the directory containing the DICOM files")
-    ok_button = load_msg_box.addButton("Ok", QMessageBox.AcceptRole)
-    cancel_button = load_msg_box.addButton("Cancel", QMessageBox.RejectRole)
+    load_msg_box.setText("Welcome to Speedy QC for Desktop")
+    load_msg_box.setInformativeText("Copyright (c) 2023, Ian Selby, MIT License\n\n"
+                                    "Please select the directory containing the DICOM files...")
+    ok_button = load_msg_box.addButton("Ok", QMessageBox.ButtonRole.AcceptRole)
+    cancel_button = load_msg_box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
     load_msg_box.setDefaultButton(ok_button)
-    load_msg_box.exec_()
+    load_msg_box.exec()
 
     if load_msg_box.clickedButton() == ok_button:
         # Use QFileDialog to select a directory
-        dir_path = QFileDialog.getExistingDirectory(None, "Select DICOM directory")
-        if dir_path:
-            window = MainWindow(dir_path)
-            window.show()
-        sys.exit(app.exec_())
+        dir_dialog = QFileDialog()
+        # dir_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
+        dir_dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dir_dialog.setWindowTitle("Select DICOM directory")
+        # dir_dialog.setStyleSheet(
+        #     f"background-color: {get_theme('dark_blue.xml')['primaryLightColor']}; "
+        # )
+        if dir_dialog.exec() == QDialog.DialogCode.Accepted:
+            dir_path = dir_dialog.selectedFiles()[0]
+            if dir_path:
+                window = MainWindow(dir_path)
+                window.show()
+        sys.exit(app.exec())
     elif load_msg_box.clickedButton() == cancel_button:
         sys.exit()
 
