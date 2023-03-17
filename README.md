@@ -11,7 +11,7 @@ Installation
 Install the package using pip:
 
 ```bash
-pip install git+https://github.com/selbs/speedy_cxr
+pip install git+https://github.com/selbs/speedy_qc
 ```
 
 It is recommended to install the package in a virtual environment.
