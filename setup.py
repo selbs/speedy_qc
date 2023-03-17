@@ -1,6 +1,10 @@
 from setuptools import setup, find_packages
 import os
 
+print("*"*100)
+print("Running setup.py")
+print("*"*100)
+
 setup(
     author='Ian Selby',
     author_email='ias49@cam.ac.uk',
@@ -10,7 +14,7 @@ setup(
     use_scm_version=True,
     setup_requires=["setuptools_scm>=7.0.4"],
     packages=find_packages(include=['speedy_qc', 'speedy_qc.*']),
-    package_data={'speedy_qc': ['assets/*', 'checkboxes.yml']},
+    package_data={'': ['assets/*', 'checkboxes.yml']},
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
