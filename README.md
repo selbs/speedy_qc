@@ -14,7 +14,8 @@ Install the package using pip:
 pip install git+https://github.com/selbs/speedy_qc
 ```
 
-It is recommended to install the package in a virtual environment.
+It is recommended to install the package in a virtual environment with Python 3.10, used in development.
+However, other versions of Python 3 should still work.
 
 Usage
 -----
