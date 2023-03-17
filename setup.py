@@ -1,11 +1,10 @@
-from setuptools import setup, find_packages
-import os
+from setuptools import setup, find_packages, find_namespace_packages
 
-print("*"*100)
-print("Running setup.py")
-print("*"*100)
+APP = ['speedy_qc/main.py']
+OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns'}
 
 setup(
+    app=APP,
     author='Ian Selby',
     author_email='ias49@cam.ac.uk',
     description='Tool to label single DICOM images using custom checkboxes',
@@ -13,8 +12,9 @@ setup(
     url='https://github.com/selbs/speedy_qc',
     use_scm_version=True,
     setup_requires=["setuptools_scm>=7.0.4"],
-    packages=find_packages(),
+    packages=find_namespace_packages(),
     include_package_data=True,
+    options={'py2app': OPTIONS},
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
@@ -44,7 +44,3 @@ setup(
         "QtAwesome>=1.2.3",
     ],
 )
-
-print("*"*100)
-print(os.path.join('your_package_name', 'icons', '*'))
-print("*"*100)
