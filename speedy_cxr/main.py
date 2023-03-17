@@ -30,7 +30,7 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/3x/white@3x.png"
+        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/3x/white@3x.png"
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -126,7 +126,7 @@ class LoadMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/3x/white@3x.png"
+        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/3x/white@3x.png"
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -229,7 +229,7 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
 
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/icns/white_panel.icns"
+        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/icns/white_panel.icns"
         self.setWindowIcon(QIcon(icon_path))
 
         self.image_view = CustomGraphicsView(self)
