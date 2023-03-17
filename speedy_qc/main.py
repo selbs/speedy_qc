@@ -15,6 +15,7 @@ import qtawesome as qta
 import yaml
 from PyQt6.QtCore import QTimer
 import datetime
+import pkg_resources
 
 
 class AboutMessageBox(QDialog):
@@ -30,7 +31,7 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/3x/white@3x.png"
+        path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -126,8 +127,19 @@ class LoadMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/3x/white@3x.png"
+        path = os.path.dirname(__file__)
+        print(path)
+
+        path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         grey_logo = QPixmap(path)
+        print(path)
+        if grey_logo.isNull():
+            print("***WARNING***")
+            print("FAILED TO LOAD LOGO!")
+            print("******"*10)
+        else:
+            print("******"*10)
+            print(grey_logo)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
         left_layout.addWidget(icon_label)
@@ -229,7 +241,7 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
 
-        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/assets/icns/white_panel.icns"
+        icon_path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
         self.image_view = CustomGraphicsView(self)
@@ -399,13 +411,12 @@ class MainWindow(QMainWindow):
 
     def backup_file(self, max_backups=5):
 
-        current_file_path = os.path.abspath(__file__)
-        backup_folder_path = os.path.dirname(os.path.dirname(current_file_path)) + "/backups"
+        backup_folder_path = 'backups/'
         # Create the backup folder if it doesn't exist
         os.makedirs(backup_folder_path, exist_ok=True)
 
         if self.backup_files is None:
-            self.backup_files = os.listdir(backup_folder_path)
+            self.backup_files = pkg_resources.resource_listdir('speedy_qc', backup_folder_path)
 
         # Get the current time as a string
         current_time_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -415,7 +426,7 @@ class MainWindow(QMainWindow):
 
         # Get a list of existing backup files
         backup_files = sorted(
-            [f for f in os.listdir(backup_folder_path) if os.path.isfile(os.path.join(backup_folder_path, f))])
+            [f for f in pkg_resources.resource_listdir('speedy_qc', backup_folder_path)])
 
         # If the number of backup files exceeds the maximum, delete the oldest one
         if len(backup_files) >= max_backups:
@@ -423,7 +434,7 @@ class MainWindow(QMainWindow):
             backup_files.pop(0)
 
         # Copy the original file to the backup folder with the new name
-        self.save_csv(os.path.join(backup_folder_path, backup_file_name))
+        self.save_csv(pkg_resources.resource_filename('speedy_qc', backup_folder_path + backup_file_name))
 
         # Add the new backup file name to the list
         self.backup_files.append(backup_file_name)
@@ -451,7 +462,8 @@ class MainWindow(QMainWindow):
             super().wheelEvent(event)
 
     def open_findings_yml(self):
-        with open('./checkboxes.yml', 'r') as file:
+        cbox_file = pkg_resources.resource_filename('speedy_qc', 'checkboxes.yml')
+        with open(cbox_file, 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
 
         return data['checkboxes']
