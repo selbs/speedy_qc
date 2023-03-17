@@ -632,7 +632,7 @@ class MainWindow(QMainWindow):
             last_index = settings.value('last_index')
             self.current_index = self.file_list.index(last_file) if last_file in self.file_list else last_index
 
-        # Create a new file list that puts unviewed files after the current file
+        # Create a new file list that puts unviewed files after the current file.
         unviewed_files = [f for f in self.file_list[self.current_index + 1:] if not self.viewed_values[f]]
         viewed_files = [f for f in self.file_list[:self.current_index + 1] if not self.viewed_values[f]]
         if len(unviewed_files) == 0:
