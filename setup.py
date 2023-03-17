@@ -4,14 +4,14 @@ setup(
     author='Ian Selby',
     author_email='ias49@cam.ac.uk',
     description='Tool to label DICOM images with simple checkboxes',
-    name='speedy_cxr',
+    name='speedy_qc',
     url='https://github.com/selbs/speedy_cxr',
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
-    packages=find_packages(include=['speedy_cxr', 'speedy_cxr.*']),
+    packages=find_packages(include=['speedy_qc', 'speedy_qc.*']),
     entry_points={
         'console_scripts': [
-            'speedy_cxr=speedy_cxr.main:main',
+            'speedy_qc=speedy_qc.main:main',
         ]
     },
     classifiers=[

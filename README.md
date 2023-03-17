@@ -39,7 +39,7 @@ executable for the application:
 ```bash
 pyinstaller --paths=/usr/local/anaconda3/envs/speedy_qc/lib/python3.10/site-packages 
 --collect-submodules=pydicom -F --windowed --argv-emulation 
---name=speedy_cxr speedy_qc/main.py
+--name=speedy_qc speedy_qc/main.py
 ```
 
 Keyboard Shortcuts

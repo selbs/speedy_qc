@@ -396,6 +396,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
+
     def backup_file(self, max_backups=5):
 
         current_file_path = os.path.abspath(__file__)
