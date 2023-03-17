@@ -13,9 +13,8 @@ setup(
     url='https://github.com/selbs/speedy_qc',
     use_scm_version=True,
     setup_requires=["setuptools_scm>=7.0.4"],
-    packages=find_packages(include=['speedy_qc', 'speedy_qc.*']),
+    packages=find_packages(),
     include_package_data=True,
-    package_data={'': ['assets/*', 'checkboxes.yml']},
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',

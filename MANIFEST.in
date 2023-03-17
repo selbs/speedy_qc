@@ -1,0 +1,2 @@
+include checkboxes.yml
+recursive-include assets *.png *.svg *.icns
