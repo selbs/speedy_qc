@@ -2,13 +2,11 @@ import os
 import sys
 import pydicom
 import numpy as np
-from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QSizePolicy, QScrollArea, QPushButton, QHBoxLayout, \
-    QVBoxLayout, QSlider, QWidget, QFileDialog, QCheckBox, QToolBar, QStyle, QSpacerItem, QMessageBox, QDialog, \
-    QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QToolButton, QTextEdit, QMenu, QWidgetAction, QMenuBar, \
-    QTreeView
-from PyQt6.QtGui import QImage, QPixmap, QPainter, QAction, QIcon, QTransform, QImage, QPixmap, QNativeGestureEvent, \
-    QTouchEvent, QWheelEvent
-from PyQt6.QtCore import Qt, QSettings, pyqtSignal, QRectF, QEvent, QPoint, QPointF, pyqtSlot
+from PyQt6.QtWidgets import QApplication, QLabel, QMainWindow, QSizePolicy, QPushButton, QHBoxLayout, \
+    QVBoxLayout, QSlider, QWidget, QFileDialog, QCheckBox, QToolBar, QSpacerItem, QMessageBox, QDialog, \
+    QGraphicsView, QGraphicsScene, QGraphicsPixmapItem, QTextEdit, QMenu, QWidgetAction, QMenuBar
+from PyQt6.QtGui import QPainter, QAction, QIcon, QPixmap, QWheelEvent
+from PyQt6.QtCore import Qt, QSettings, pyqtSignal
 from pydicom.pixel_data_handlers.util import apply_modality_lut, apply_voi_lut
 import csv
 from qimage2ndarray import array2qimage
@@ -17,7 +15,172 @@ import qtawesome as qta
 import yaml
 from PyQt6.QtCore import QTimer
 import datetime
-import shutil
+
+
+class AboutMessageBox(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        # Set the window title
+        self.setWindowTitle("About...")
+
+        # Create a top-level layout
+        top_layout = QHBoxLayout()
+
+        left_layout = QVBoxLayout()
+
+        # Add the icon to the left side of the message box using a QLabel
+        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/3x/white@3x.png"
+        grey_logo = QPixmap(path)
+        icon_label = QLabel()
+        icon_label.setPixmap(grey_logo)
+        left_layout.addWidget(icon_label)
+
+        web_text = QLabel("<a href='https://www.example.com'>www.example.com</a>")
+        web_text.setTextFormat(Qt.TextFormat.RichText)
+        web_text.setAlignment(Qt.AlignmentFlag.AlignRight)
+        web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
+        web_text.setOpenExternalLinks(True)
+
+        right_layout = QVBoxLayout()
+
+        text_layout = QVBoxLayout()
+
+        main_text = QLabel("Speedy QC for Desktop!")
+        main_text.setStyleSheet("font-weight: bold; font-size: 16px;")
+        main_text.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        text_layout.addWidget(main_text)
+
+        sub_text = QLabel("MIT License\nCopyright (c) 2023, Ian Selby")
+        sub_text.setStyleSheet("font-size: 14px;")
+        sub_text.setAlignment(Qt.AlignmentFlag.AlignTop)
+        text_layout.addWidget(sub_text)
+
+        right_layout.addLayout(text_layout)
+
+        # Create a horizontal layout for buttons
+        hbox = QHBoxLayout()
+
+        # Create a QPlainTextEdit for detailed information
+        self.detailed_info = QTextEdit()
+        self.detailed_info.setReadOnly(True)
+        self.detailed_info.setText(
+            "Permission is hereby granted, free of charge, to any person obtaining a copy of "
+            "this software and associated documentation files (the 'Software'), to deal in "
+            "the Software without restriction, including without limitation the rights to "
+            "use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of "
+            "the Software, and to permit persons to whom the Software is furnished to do so, "
+            "subject to the following conditions:\n\nThe above copyright notice and this "
+            "permission notice shall be included in all copies or substantial portions of the "
+            "Software.\n\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, "
+            "EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF "
+            "MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO "
+            "EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, "
+            "DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, "
+            "ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
+            "DEALINGS IN THE SOFTWARE."
+        )
+        self.detailed_info.setFixedHeight(300)
+        self.detailed_info.setFixedWidth(300)
+        self.detailed_info.hide()  # Hide the detailed information by default
+        right_layout.addWidget(self.detailed_info)
+
+        # Create a QPushButton for "Details..."
+        self.details_button = QPushButton("Details...")
+        self.details_button.clicked.connect(self.toggle_details)
+        hbox.addWidget(self.details_button)
+
+        # Add a QPushButton for "OK"
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        hbox.addWidget(cancel_button)
+
+        # Add the horizontal layout to the vertical layout
+        right_layout.addLayout(hbox)
+
+        # Add the vertical layout to the top-level layout
+        top_layout.addLayout(right_layout)
+        top_layout.addLayout(left_layout)
+
+        # Set the layout for the QDialog
+        self.setLayout(top_layout)
+
+    def toggle_details(self):
+        if self.detailed_info.isVisible():
+            self.detailed_info.hide()
+            self.details_button.setText("Details...")
+        else:
+            self.detailed_info.show()
+            self.details_button.setText("Hide Details")
+
+class LoadMessageBox(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        # Set the window title
+        self.setWindowTitle("Speedy QC for Desktop")
+
+        # Create a top-level layout
+        top_layout = QHBoxLayout()
+
+        left_layout = QVBoxLayout()
+
+        # Add the icon to the left side of the message box using a QLabel
+        path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/3x/white@3x.png"
+        grey_logo = QPixmap(path)
+        icon_label = QLabel()
+        icon_label.setPixmap(grey_logo)
+        left_layout.addWidget(icon_label)
+
+        web_text = QLabel("<a href='https://www.example.com'>www.example.com</a>")
+        web_text.setTextFormat(Qt.TextFormat.RichText)
+        web_text.setAlignment(Qt.AlignmentFlag.AlignRight)
+        web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
+        web_text.setOpenExternalLinks(True)
+        left_layout.addWidget(web_text)
+        cr_text = QLabel("MIT License, Copyright (c) 2023, Ian Selby.")
+        cr_text.setStyleSheet("font-size: 8px;")
+        cr_text.setAlignment(Qt.AlignmentFlag.AlignRight)
+        left_layout.addWidget(cr_text)
+
+        right_layout = QVBoxLayout()
+
+        text_layout = QVBoxLayout()
+
+        main_text = QLabel("Welcome to Speedy QC for Desktop!")
+        main_text.setStyleSheet("font-weight: bold; font-size: 16px;")
+        main_text.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        text_layout.addWidget(main_text)
+
+        sub_text = QLabel("In the next window, please select a directory to\nload the DICOM files:")
+        sub_text.setStyleSheet("font-size: 14px;")
+        sub_text.setAlignment(Qt.AlignmentFlag.AlignTop)
+        text_layout.addWidget(sub_text)
+
+        right_layout.addLayout(text_layout)
+
+        # Create a horizontal layout for buttons
+        hbox = QHBoxLayout()
+
+        # Add a QPushButton for "OK"
+        ok_button = QPushButton("OK")
+        ok_button.clicked.connect(self.accept)
+        hbox.addWidget(ok_button)
+
+        # Add a QPushButton for "Cancel"
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(self.reject)
+        hbox.addWidget(cancel_button)
+
+        # Add the horizontal layout to the vertical layout
+        right_layout.addLayout(hbox)
+
+        # Add the vertical layout to the top-level layout
+        top_layout.addLayout(right_layout)
+        top_layout.addLayout(left_layout)
+
+        # Set the layout for the QDialog
+        self.setLayout(top_layout)
 
 
 class CustomGraphicsView(QGraphicsView):
@@ -66,6 +229,9 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
 
+        icon_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/icons/icns/white_panel.icns"
+        self.setWindowIcon(QIcon(icon_path))
+
         self.image_view = CustomGraphicsView(self)
         self.image_view.resize(self.size())
 
@@ -90,7 +256,8 @@ class MainWindow(QMainWindow):
             'exit': qta.icon("mdi.exit-to-app"),
             'reset_win': qta.icon("mdi.credit-card-refresh"),
             'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
-            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2)
+            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
+            'question': qta.icon("mdi.help-circle", color="white", scale=2)
         }
 
         self.dir_path = dir_path
@@ -226,6 +393,8 @@ class MainWindow(QMainWindow):
         self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
         self.timer.timeout.connect(self.backup_file)
         self.timer.start()
+
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
     def backup_file(self, max_backups=5):
 
@@ -525,7 +694,7 @@ class MainWindow(QMainWindow):
         self.update_image()
 
         # Update the image display
-        self.setWindowTitle(f"Dicom Viewer - {self.file_list[self.current_index]}")
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
         self.image_view.fitInView(self.image_view.scene().items()[0].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
         self.image_view.zoom = 1
 
@@ -627,30 +796,26 @@ class MainWindow(QMainWindow):
     def load_from_csv(self):
         msg_box = QMessageBox()
         msg_box.setText("Do you want to load previous progress or create a new output file?")
+        icon_label = QLabel()
+        icon_label.setPixmap(self.icons['question'].pixmap(64, 64))
+        msg_box.setIconPixmap(icon_label.pixmap())
+
         load_button = QPushButton("Load")
         msg_box.addButton(load_button, QMessageBox.ButtonRole.AcceptRole)
         new_button = QPushButton("New")
-        # cancel_button = QPushButton("Cancel")
         msg_box.addButton(new_button, QMessageBox.ButtonRole.RejectRole)
-        msg_box.setStandardButtons(QMessageBox.StandardButton.Cancel)
-        # msg_box.addButton(cancel_button, QMessageBox.ButtonRole.RejectRole)
-        msg_box.setDefaultButton(load_button)
+        cancel_button = msg_box.addButton(QMessageBox.StandardButton.Cancel)
         msg_box.exec()
+        clicked_button = msg_box.clickedButton()
 
-        if msg_box.clickedButton() == load_button:
+        if clicked_button == load_button:
             file_dialog = QFileDialog(self, 'Open previously saved CSV File', self.default_directory,
                                       'CSV Files (*.csv)')
-            # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
             file_dialog.setNameFilters(['CSV Files (*.csv)'])
             file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-            # Set the color of the directory items
-            # file_dialog.setStyleSheet(
-            #     f"""color: white;
-            #     background-color: {get_theme('dark_blue.xml')['primaryColor']};
-            #     """
-            # )
+            file_dialog.exec()
 
-            if file_dialog.exec() == QDialog.DialogCode.Accepted:
+            if file_dialog.DialogCode.Accepted:
                 selected_file = file_dialog.selectedFiles()[0]
                 self.default_directory = file_dialog.directory().path()
                 with open(selected_file, 'r') as file:
@@ -668,9 +833,9 @@ class MainWindow(QMainWindow):
                 return selected_file, True
             else:
                 return None, False
-        elif msg_box.clickedButton() == new_button:
+        elif clicked_button == new_button:
             return None, False
-        elif msg_box.StandardButton.Cancel:
+        elif clicked_button == cancel_button:
             sys.exit()
 
     def on_checkbox_changed(self, state):
@@ -685,7 +850,11 @@ class MainWindow(QMainWindow):
         # Ask the user if they want to save before closing
 
         close_msg_box = QMessageBox()
-        close_msg_box.setIcon(QMessageBox.Icon.Question)
+
+        icon_label = QLabel()
+        icon_label.setPixmap(self.icons['question'].pixmap(64, 64))
+        close_msg_box.setIconPixmap(icon_label.pixmap())
+
         close_msg_box.setText("Save Changes?")
         close_msg_box.setInformativeText("Do you want to save changes before closing?")
         close_msg_box.setStandardButtons(QMessageBox.StandardButton.Yes |
@@ -736,54 +905,26 @@ class MainWindow(QMainWindow):
         # about_action.triggered.connect(self.show_help)
         about_action.triggered.connect(self.show_about)
 
+
+
     # def show_help(self):
     def show_about(self):
-        about_box = QMessageBox()
-        about_box.setWindowTitle("About...")
-        about_box.setIcon(QMessageBox.Icon.Information)
-        about_box.setText("Speedy QC for Desktop")
-        about_box.setInformativeText("MIT License\nCopyright (c) 2023, Ian Selby")
-
-        about_box.setDetailedText("Permission is hereby granted, free of charge, to any person obtaining a copy of "
-                                  "this software and associated documentation files (the 'Software'), to deal in "
-                                  "the Software without restriction, including without limitation the rights to "
-                                  "use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of "
-                                  "the Software, and to permit persons to whom the Software is furnished to do so, "
-                                  "subject to the following conditions:\n\nThe above copyright notice and this "
-                                  "permission notice shall be included in all copies or substantial portions of the "
-                                  "Software.\n\nTHE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, "
-                                  "EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF "
-                                  "MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO "
-                                  "EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, "
-                                  "DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, "
-                                  "ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER "
-                                  "DEALINGS IN THE SOFTWARE.")
-
-        about_box.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
-        about_box_label = QLabel()
-        about_box_label.setTextFormat(Qt.TextFormat.RichText)
-        about_box_label.setText("<a href='https://www.example.com'>www.example.com</a>")
-        about_box_label.setOpenExternalLinks(True)
-
-        about_box.layout().addWidget(about_box_label)
-
+        about_box = AboutMessageBox()
         about_box.exec()
+
+
 
 def main():
     app = QApplication(sys.argv)
 
     apply_stylesheet(app, theme='dark_blue.xml')
+    QIcon.setThemeName('qtawesome')
 
-    load_msg_box = QMessageBox()
-    load_msg_box.setText("Welcome to Speedy QC for Desktop")
-    load_msg_box.setInformativeText("Copyright (c) 2023, Ian Selby, MIT License\n\n"
-                                    "Please select the directory containing the DICOM files...")
-    ok_button = load_msg_box.addButton("Ok", QMessageBox.ButtonRole.AcceptRole)
-    cancel_button = load_msg_box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-    load_msg_box.setDefaultButton(ok_button)
-    load_msg_box.exec()
+    load_msg_box = LoadMessageBox()
+    result = load_msg_box.exec()
 
-    if load_msg_box.clickedButton() == ok_button:
+    if result == load_msg_box.DialogCode.Accepted:
+
         # Use QFileDialog to select a directory
         dir_dialog = QFileDialog()
         # dir_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
@@ -797,8 +938,10 @@ def main():
             if dir_path:
                 window = MainWindow(dir_path)
                 window.show()
-        sys.exit(app.exec())
-    elif load_msg_box.clickedButton() == cancel_button:
+                sys.exit(app.exec())
+        else:
+            sys.exit()
+    else:
         sys.exit()
 
 
