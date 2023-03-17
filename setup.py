@@ -22,7 +22,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "Bottleneck>=1.3.5",
-        "certifi>=2022.12.17",
+        "certifi>=2022.12.7",
         "flit-core>=3.6.0",
         "install>=1.3.5",
         "mkl-service==2.4.0",
