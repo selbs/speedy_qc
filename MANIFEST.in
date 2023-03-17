@@ -1,2 +1,4 @@
-include checkboxes.yml
-recursive-include assets *.png *.svg *.icns
+include README.md
+include LICENSE
+recursive-include speedy_qc/assets *
+recursive-include speedy_qc/checkboxes.yml
