@@ -1,4 +1,4 @@
-<img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" width="100"> Speedy QC for Desktop   
+Speedy QC for Desktop <align="right"><img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" width="100">   
 =====================
 
 ![Screenshot](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/screenshot.png)
