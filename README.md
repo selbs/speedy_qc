@@ -1,6 +1,8 @@
 Speedy QC for Desktop
 =====================
 
+![Screenshot](https://raw.githubusercontent.com/selbs/speedy_qc/main/assets/screenshot.png)
+
 DICOM viewer and labeller for single DICOM files in a directory, i.e. X-rays. The program may be
 used to quickly check the quality of the images and to label them with the required ground truth for
 training a deep learning model.
