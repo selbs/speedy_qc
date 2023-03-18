@@ -678,7 +678,7 @@ class MainWindow(QMainWindow):
 
     def reset_window_sliders(self):
         self.window_center_slider.setValue(127)
-        self.window_center_slider.setValue(255)
+        self.window_width_slider.setValue(255)
 
     def previous_image(self):
         self.viewed_values[self.file_list[self.current_index]] = True
@@ -1002,8 +1002,6 @@ class ConnectionManager:
 
 def main():
     app = QApplication(sys.argv)
-    icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
-    app.setWindowIcon(QIcon(icon_path))
 
     apply_stylesheet(app, theme='dark_blue.xml')
     QIcon.setThemeName('qtawesome')

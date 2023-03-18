@@ -1,15 +1,27 @@
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, find_namespace_packages
+import py2app
+
+APP = ['speedy_qc/main.py']
+OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_cffi_backend'],
+           'resources': ['speedy_qc/assets', 'speedy_qc/config.yml'],
+           'dylib_excludes': ['libgfortran.3.dylib'],
+           'frameworks': ['/opt/homebrew/Cellar/libffi/3.4.4/lib/libffi.8.dylib'],
+           'dist-dir': 'dist/arm64'
+           } | dict(plist=dict(NSRequiresAquaSystemAppearance=False,
+                               CFBundleIconFile="speedy_qc/assets/icns/white_panel.icns"))
 
 setup(
+    app=APP,
     author='Ian Selby',
     author_email='ias49@cam.ac.uk',
     description='Tool to label single DICOM images using custom checkboxes',
-    name='speedy_qc',
+    name='Speedy QC',
     url='https://github.com/selbs/speedy_qc',
     use_scm_version=True,
-    setup_requires=["setuptools_scm>=7.0.4"],
-    packages=find_packages(),
+    setup_requires=["setuptools_scm>=7.0.4", "py2app>=0.28"],
+    packages=find_namespace_packages(),
     include_package_data=True,
+    options={'py2app': OPTIONS},
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
@@ -37,6 +49,5 @@ setup(
         "qimage2ndarray>=1.10.0",
         "qt-material>=2.14",
         "QtAwesome>=1.2.3",
-        "py2app>=0.28"
     ],
 )
