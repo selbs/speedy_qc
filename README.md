@@ -1,5 +1,5 @@
 <!-- Project Title and Logo -->
-<div align="center">
+<div align="right">
   <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="100">
   <h1 align="left">Speedy QC for Desktop</h1>
 </div>
