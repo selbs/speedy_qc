@@ -1,6 +1,6 @@
 <!-- Project Title and Logo -->
 <div style="display: flex; justify-content: space-between; align-items: center;">
-  <h1>Speedy QC for Desktop</h1>
+  <h1 style="font-size: 24px;">Speedy QC for Desktop</h1>
   <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="100">
 </div>
 
