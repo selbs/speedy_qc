@@ -15,12 +15,14 @@ import qtawesome as qta
 import yaml
 from PyQt6.QtCore import QTimer
 import datetime
-import pkg_resources
+# import pkg_resources
 
 
 class AboutMessageBox(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        # self.connections = {}
+        self.connection_manager = ConnectionManager()
 
         # Set the window title
         self.setWindowTitle("About...")
@@ -31,7 +33,8 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
+        # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
+        path = os.path.join(os.path.dirname(__file__), 'assets/3x/white@3x.png')
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -88,13 +91,15 @@ class AboutMessageBox(QDialog):
 
         # Create a QPushButton for "Details..."
         self.details_button = QPushButton("Details...")
-        self.details_button.clicked.connect(self.toggle_details)
+        self.connection_manager.connect(self.details_button.clicked, self.toggle_details)
+        # self.connections['details'] = self.details_button.clicked.connect(self.toggle_details)
         hbox.addWidget(self.details_button)
 
         # Add a QPushButton for "OK"
-        cancel_button = QPushButton("Cancel")
-        cancel_button.clicked.connect(self.reject)
-        hbox.addWidget(cancel_button)
+        self.cancel_button = QPushButton("Cancel")
+        self.connection_manager.connect(self.cancel_button.clicked, self.reject)
+        # self.connections['reject'] = cancel_button.clicked.connect(self.reject)
+        hbox.addWidget(self.cancel_button)
 
         # Add the horizontal layout to the vertical layout
         right_layout.addLayout(hbox)
@@ -117,6 +122,8 @@ class AboutMessageBox(QDialog):
 class LoadMessageBox(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        # self.connections = {}
+        self.connection_manager = ConnectionManager()
 
         # Set the window title
         self.setWindowTitle("Speedy QC for Desktop")
@@ -130,7 +137,8 @@ class LoadMessageBox(QDialog):
         path = os.path.dirname(__file__)
         print(path)
 
-        path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
+        # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
+        path = os.path.join(os.path.dirname(__file__), 'assets/3x/white@3x.png')
         grey_logo = QPixmap(path)
         print(path)
         if grey_logo.isNull():
@@ -176,12 +184,14 @@ class LoadMessageBox(QDialog):
 
         # Add a QPushButton for "OK"
         ok_button = QPushButton("OK")
-        ok_button.clicked.connect(self.accept)
+        self.connection_manager.connect(ok_button.clicked, self.accept)
+        # self.connections['okay'] = ok_button.clicked.connect(self.accept)
         hbox.addWidget(ok_button)
 
         # Add a QPushButton for "Cancel"
         cancel_button = QPushButton("Cancel")
-        cancel_button.clicked.connect(self.reject)
+        self.connection_manager.connect(cancel_button.clicked, self.reject)
+        # self.connections['cancel'] = cancel_button.clicked.connect(self.reject)
         hbox.addWidget(cancel_button)
 
         # Add the horizontal layout to the vertical layout
@@ -198,6 +208,8 @@ class LoadMessageBox(QDialog):
 class CustomGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
         super().__init__()
+        # self.connections = {}
+        self.connection_manager = ConnectionManager()
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
@@ -209,7 +221,8 @@ class CustomGraphicsView(QGraphicsView):
         self.touch_points = []
 
         if isinstance(parent, MainWindow):
-            parent.resized.connect(self.on_main_window_resized)
+            self.connection_manager.connect(parent.resized, self.on_main_window_resized)
+            # self.connections['resized'] = parent.resized.connect(self.on_main_window_resized)
 
     def zoom_in(self):
         factor = 1.2
@@ -232,6 +245,8 @@ class MainWindow(QMainWindow):
 
     def __init__(self, dir_path):
         super().__init__()
+        self.connection_manager = ConnectionManager()
+        # self.connections = {}
         # Set the initial window size
         self.resize(1200, 900)
         # Set the minimum window size
@@ -241,7 +256,10 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
 
-        icon_path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white_panel.icns')
+        self.about_box = AboutMessageBox()
+
+        # icon_path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white_panel.icns')
+        icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
         self.image_view = CustomGraphicsView(self)
@@ -274,7 +292,7 @@ class MainWindow(QMainWindow):
 
         self.dir_path = dir_path
         self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
-        self.findings = self.open_findings_yml()
+        self.findings, self.max_backups, self.backup_dir = self.open_findings_yml()
         self.viewed_values = {f: False for f in self.file_list}
         self.notes = {f: "" for f in self.file_list}
         self.checkbox_values = {f: {finding: False for finding in self.findings} for f in self.file_list}
@@ -317,7 +335,8 @@ class MainWindow(QMainWindow):
 
         textbox = QTextEdit()
         textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        textbox.textChanged.connect(self.on_text_changed)
+        self.connection_manager.connect(textbox.textChanged, self.on_text_changed)
+        # self.connections['textbox'] = textbox.textChanged.connect(self.on_text_changed)
         text_action = QWidgetAction(self)
         text_action.setDefaultWidget(textbox)
         self.textbox_label = QLabel(self)
@@ -330,20 +349,25 @@ class MainWindow(QMainWindow):
         # Create the image toolbar
         self.image_toolbar = QToolBar(self)
         self.invert_action = QAction(self.icons['inv'], "Invert Grayscale", self)
-        self.invert_action.triggered.connect(self.invert_grayscale)
+        self.connection_manager.connect(self.invert_action.triggered, self.invert_grayscale)
+        # self.connections['invert'] = self.invert_action.triggered.connect(self.invert_grayscale)
         self.image_toolbar.addAction(self.invert_action)
         self.rotate_left_action = QAction(self.icons['rot_left'], "Rotate 90° Left", self)
-        self.rotate_left_action.triggered.connect(self.rotate_image_left)
+        self.connection_manager.connect(self.rotate_left_action.triggered, self.rotate_image_left)
+        # self.connections['rotate_l'] = self.rotate_left_action.triggered.connect(self.rotate_image_left)
         self.image_toolbar.addAction(self.rotate_left_action)
         self.rotate_right_action = QAction(self.icons['rot_right'], "Rotate 90° Right", self)
-        self.rotate_right_action.triggered.connect(self.rotate_image_right)
+        self.connection_manager.connect(self.rotate_right_action.triggered, self.rotate_image_right)
+        # self.connections['rotate_r'] = self.rotate_right_action.triggered.connect(self.rotate_image_right)
         self.image_toolbar.addAction(self.rotate_right_action)
 
         # Create zoom buttons
         self.zoom_in_action = QAction(self.icons['zoom_in'], "Zoom In", self)
         self.zoom_out_action = QAction(self.icons['zoom_out'], "Zoom Out", self)
-        self.zoom_in_action.triggered.connect(self.image_view.zoom_in)
-        self.zoom_out_action.triggered.connect(self.image_view.zoom_out)
+        self.connection_manager.connect(self.zoom_in_action.triggered, self.image_view.zoom_in)
+        self.connection_manager.connect(self.zoom_out_action.triggered, self.image_view.zoom_out)
+        # self.connections['zoom_in'] = self.zoom_in_action.triggered.connect(self.image_view.zoom_in)
+        # self.connections['zoom_out'] = self.zoom_out_action.triggered.connect(self.image_view.zoom_out)
         self.image_toolbar.addAction(self.zoom_in_action)
         self.image_toolbar.addAction(self.zoom_out_action)
 
@@ -367,7 +391,8 @@ class MainWindow(QMainWindow):
         # Connect the nav buttons to their functions and to reset the windowing parameters
         self.image_toolbar.addSeparator()
         self.reset_window_action = QAction(self.icons['reset_win'], "Reset Windowing", self)
-        self.reset_window_action.triggered.connect(self.reset_window_sliders)
+        self.connection_manager.connect(self.reset_window_action.triggered, self.reset_window_sliders)
+        # self.connections['reset_window'] = self.reset_window_action.triggered.connect(self.reset_window_sliders)
         self.image_toolbar.addAction(self.reset_window_action)
 
         self.image_toolbar.addAction(self.window_center_label)
@@ -388,14 +413,22 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
 
         # Connections between buttons / sliders and their functions
-        self.window_center_slider.valueChanged.connect(self.update_image)
-        self.window_width_slider.valueChanged.connect(self.update_image)
-        self.nextAction.triggered.connect(self.reset_window_sliders)
-        self.prevAction.triggered.connect(self.reset_window_sliders)
-        self.prevAction.triggered.connect(self.previous_image)
-        self.nextAction.triggered.connect(self.next_image)
-        self.saveAction.triggered.connect(self.save_to_csv)
-        self.exitAction.triggered.connect(self.close)
+        self.connection_manager.connect(self.window_center_slider.valueChanged, self.update_image)
+        # self.connections['window_center'] = self.window_center_slider.valueChanged.connect(self.update_image)
+        self.connection_manager.connect(self.window_width_slider.valueChanged, self.update_image)
+        # self.con['window_width'] = self.window_width_slider.valueChanged.connect(self.update_image)
+        self.connection_manager.connect(self.nextAction.triggered, self.reset_window_sliders)
+        # self.connections['next_reset_window'] = self.nextAction.triggered.connect(self.reset_window_sliders)
+        self.connection_manager.connect(self.prevAction.triggered, self.reset_window_sliders)
+        # self.connections['prev_reset_window'] = self.prevAction.triggered.connect(self.reset_window_sliders)
+        self.connection_manager.connect(self.prevAction.triggered, self.previous_image)
+        # self.connections['prev_img'] = self.prevAction.triggered.connect(self.previous_image)
+        self.connection_manager.connect(self.nextAction.triggered, self.next_image)
+        # self.connections['next_img'] = self.nextAction.triggered.connect(self.next_image)
+        self.connection_manager.connect(self.saveAction.triggered, self.save_to_csv)
+        # self.connections['save_csv'] = self.saveAction.triggered.connect(self.save_to_csv)
+        self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
+        # self.connections['exit'] = self.exitAction.triggered.connect(self.quit_app)
 
         self.init_menus()
 
@@ -403,20 +436,21 @@ class MainWindow(QMainWindow):
         self.backup_files = None
         self.timer = QTimer()
         self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
-        self.timer.timeout.connect(self.backup_file)
+        self.connection_manager.connect(self.timer.timeout, self.backup_file)
+        # self.connections['timer'] = self.timer.timeout.connect(self.backup_file)
         self.timer.start()
 
         self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
 
-    def backup_file(self, max_backups=5):
+    def backup_file(self):
 
-        backup_folder_path = 'backups/'
+        backup_folder_path = self.backup_dir
         # Create the backup folder if it doesn't exist
         os.makedirs(backup_folder_path, exist_ok=True)
 
         if self.backup_files is None:
-            self.backup_files = pkg_resources.resource_listdir('speedy_qc', backup_folder_path)
+            self.backup_files = backup_folder_path
 
         # Get the current time as a string
         current_time_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -426,15 +460,15 @@ class MainWindow(QMainWindow):
 
         # Get a list of existing backup files
         backup_files = sorted(
-            [f for f in pkg_resources.resource_listdir('speedy_qc', backup_folder_path)])
+            [f for f in os.path.listdir(backup_folder_path)])
 
         # If the number of backup files exceeds the maximum, delete the oldest one
-        if len(backup_files) >= max_backups:
+        if len(backup_files) >= self.max_backups:
             os.remove(os.path.join(backup_folder_path, backup_files[0]))
             backup_files.pop(0)
 
         # Copy the original file to the backup folder with the new name
-        self.save_csv(pkg_resources.resource_filename('speedy_qc', backup_folder_path + backup_file_name))
+        self.save_csv(os.path.join(backup_folder_path + backup_file_name))
 
         # Add the new backup file name to the list
         self.backup_files.append(backup_file_name)
@@ -462,11 +496,12 @@ class MainWindow(QMainWindow):
             super().wheelEvent(event)
 
     def open_findings_yml(self):
-        cbox_file = pkg_resources.resource_filename('speedy_qc', 'checkboxes.yml')
+
+        cbox_file = os.path.join(os.path.dirname(__file__), 'config.yml')
         with open(cbox_file, 'r') as file:
             data = yaml.load(file, Loader=yaml.FullLoader)
 
-        return data['checkboxes']
+        return data['checkboxes'], data['max_backups'], data['backup_dir']
 
     def on_text_changed(self):
         textbox = self.sender()
@@ -569,7 +604,8 @@ class MainWindow(QMainWindow):
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
             self.checkboxes[cbox].setChecked(bool(self.checkbox_values.get(filename, False).get(cbox, False)))
-            self.checkboxes[cbox].stateChanged.connect(self.on_checkbox_changed)
+            self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
+            # self.connections['cbox'] = self.checkboxes[cbox].stateChanged.connect(self.on_checkbox_changed)
 
     def set_checkbox_toolbar(self, checkboxes):
         spacer_item = QSpacerItem(0, 5, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -753,7 +789,7 @@ class MainWindow(QMainWindow):
             self.save_to_csv()
         elif event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             if event.key() == Qt.Key.Key_Q:
-                self.close()
+                QApplication.quit()
         else:
             super().keyPressEvent(event)
 
@@ -849,7 +885,7 @@ class MainWindow(QMainWindow):
         elif clicked_button == new_button:
             return None, False
         elif clicked_button == cancel_button:
-            sys.exit()
+            QApplication.quit()
 
     def on_checkbox_changed(self, state):
         filename = self.file_list[self.current_index]
@@ -911,24 +947,63 @@ class MainWindow(QMainWindow):
         menu_bar.addMenu(help_menu)
         self.setMenuBar(menu_bar)
 
-        save_action.triggered.connect(self.save_to_csv)
-        save_as_action.triggered.connect(self.save_as)
-        menu_exit_action.triggered.connect(self.close)
+        self.connection_manager.connect(save_action.triggered, self.save_to_csv)
+        # self.connections['menu_save'] = save_action.triggered.connect(self.save_to_csv)
+        self.connection_manager.connect(save_as_action.triggered, self.save_as)
+        # self.connections['menu_save_as'] = save_as_action.triggered.connect(self.save_as)
+        self.connection_manager.connect(menu_exit_action.triggered, self.quit_app)
+        # self.connections['menu_exit'] = menu_exit_action.triggered.connect(self.quit_app)
 
         # about_action.triggered.connect(self.show_help)
-        about_action.triggered.connect(self.show_about)
-
+        self.connection_manager.connect(about_action.triggered, self.show_about)
+        # self.connections['about'] = about_action.triggered.connect(self.show_about)
 
 
     # def show_help(self):
+
     def show_about(self):
-        about_box = AboutMessageBox()
-        about_box.exec()
+        self.about_box.exec()
 
+    def quit_app(self):
+        self.timer.stop()
+        self.connection_manager.disconnect_all()
+        self.about_box.connection_manager.disconnect_all()
+        self.image_view.connection_manager.disconnect_all()
+        self.close()
+        QApplication.quit()
 
+    # def disconnect_all_connections(self):
+    #     for connection in self.connections.values():
+    #         for receiver in connection.receivers():
+    #             connection.disconnect(receiver)
+
+class Connection:
+    def __init__(self, signal, slot):
+        self.signal = signal
+        self.slot = slot
+        self.connection = self.signal.connect(self.slot)
+
+    def disconnect(self):
+        self.signal.disconnect(self.slot)
+
+class ConnectionManager:
+    def __init__(self):
+        self.connections = {}
+
+    def connect(self, signal, slot):
+        connection = Connection(signal, slot)
+        self.connections[id(connection)] = connection
+
+    def disconnect_all(self):
+        for connection in self.connections.values():
+            if isinstance(connection, Connection):
+                connection.disconnect()
+        self.connections = {}
 
 def main():
     app = QApplication(sys.argv)
+    icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
+    app.setWindowIcon(QIcon(icon_path))
 
     apply_stylesheet(app, theme='dark_blue.xml')
     QIcon.setThemeName('qtawesome')
@@ -951,11 +1026,8 @@ def main():
             if dir_path:
                 window = MainWindow(dir_path)
                 window.show()
-                sys.exit(app.exec())
-        else:
-            sys.exit()
-    else:
-        sys.exit()
+    load_msg_box.connection_manager.disconnect_all()
+    sys.exit(app.exec())
 
 
 if __name__ == '__main__':

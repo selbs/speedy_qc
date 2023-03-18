@@ -1,5 +1,5 @@
 include README.md
 include LICENSE
 recursive-include speedy_qc/assets *
-recursive-include speedy_qc/*.yml
+recursive-include speedy_qc *.yml
 

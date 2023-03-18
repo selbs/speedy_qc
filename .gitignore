@@ -2,7 +2,6 @@
 __pycache__/
 *.py[cod]
 *$py.class
-backups/*
 py2app_setuppy_template.py
 speedy_qc/info.plist
 

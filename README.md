@@ -3,7 +3,7 @@ Speedy QC for Desktop
 
 DICOM viewer and labeller for single DICOM files in a directory, i.e. X-rays.
 
-Primarily for use on Mac OS X, but should work on Windows and Linux as well.
+Primarily for use on Mac OS X, but should work on Linux and Windows.
 
 Installation
 ------------
@@ -17,6 +17,14 @@ pip install git+https://github.com/selbs/speedy_qc
 It is recommended to install the package in a virtual environment with Python 3.10, used in development.
 However, other versions of Python 3 should still work.
 
+You can also clone the package from GitHub and install it manually:
+
+```bash
+git clone https://github.com/selbs/speedy_qc.git
+cd speedy_qc
+pip install .
+```
+
 Usage
 -----
 
@@ -29,17 +37,23 @@ speedy_qc
 Customisation
 -------------
 
-List the required checkboxes in the checkboxes.yml file and the checkboxes will be automatically updated.
+List the required checkboxes in the checkboxes.yml file and the checkboxes will be automatically updated. 
+The maximum number of backups and the backup directory can also be changed.
 
 Creating an Executable
 ----------------------
 
-If conda environment is called 'speedy_qc' using python 3.10, the following command can be used to create an 
-executable for the application:
+An executable can be created using py2app for Mac OS X or py2exe for Windows. PyInstaller may also work but
+has not been tested.
+
+To create an executable with py2app, the following command can be used from inside the speedy_qc directory:
 
 ```bash
-pyinstaller --paths=/usr/local/anaconda3/envs/speedy_qc/lib/python3.10/site-packages --collect-submodules=pydicom -F --windowed --argv-emulation --name=speedy_qc speedy_qc/main.py --icon=assets/icns/white_panel.icns
+python setup.py py2app
 ```
+
+The finished executable will be in the `dist` folder, which can be moved to the `Applications` folder as required.
+
 
 Keyboard Shortcuts
 ------------------
@@ -57,3 +71,11 @@ Keyboard Shortcuts
 | Ctrl + Q       | Quit               |
 | Ctrl + Scroll  | Window Width       |
 | Shift + Scroll | Window Center      |
+
+Backup Files
+------------
+
+Work is automatically backed up in the user's home directory (`~`) in the folder `.speedy_qc_backups`.
+This is a hidden folder and will hold up to the latest ten backups. A backup will be made every ten minutes to
+allow for recovery in case of a crash. The number of backups and the backup directory can be customised
+in the `config.yml` file.
