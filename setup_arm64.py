@@ -6,7 +6,7 @@ OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_
            'resources': ['speedy_qc/assets', 'speedy_qc/config.yml'],
            'dylib_excludes': ['libgfortran.3.dylib'],
            'frameworks': ['/opt/homebrew/Cellar/libffi/3.4.4/lib/libffi.8.dylib'],
-           'dist-dir': 'dist/arm64'
+           'dist_dir': 'dist/arm64'
            } | dict(plist=dict(NSRequiresAquaSystemAppearance=False,
                                CFBundleIconFile="speedy_qc/assets/icns/white_panel.icns"))
 

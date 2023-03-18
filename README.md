@@ -115,12 +115,11 @@ In both cases, replace '86x64' with 'arm64' for the arm64 executable as necessar
 
 A universal binary can be created by combining the two executables created by `py2app`. This can be done using the
 `lipo` command after both executables have been created (e.g. inside arm64 and 86x64 conda environments). 
-To create a universal binary for the 86x64 and arm64 executables, the following commands
-can be used:
+To create a universal binary for the 86x64 and arm64 executables, use the following commands:
 
 ```bash
+mkdir -p "dist/universal/Speedy QC.app/"
 cp -R "dist/arm64/Speedy QC.app/" "dist/universal/Speedy QC.app/"
-
 lipo -create -output "dist/universal/Speedy QC.app/Contents/MacOS/Python" "dist/arm64/Speedy QC.app/Contents/MacOS/Python" "dist/86x64/Speedy QC.app/Contents/MacOS/Python"
 ```
 
