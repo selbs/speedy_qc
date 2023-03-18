@@ -53,9 +53,11 @@ Keyboard Shortcuts
 | R              | Rotate image right |
 | L              | Rotate image left  |
 | S              | Save to CSV        |
-| Ctrl + Q       | Quit               |
-| Ctrl + Scroll  | Window Width       |
+| Cmd + Q        | Quit               |
+| Cmd + Scroll   | Window Width       |
 | Shift + Scroll | Window Center      |
+
+Note: Cmd + Scroll and Shift + Scroll are only currently available on Mac OS X.
 
 Backup Files
 ------------
