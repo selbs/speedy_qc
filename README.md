@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="100" height="100">
+  <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="100">
   <h1 align="center">Speedy QC for Desktop</h1>
 </p>
 
