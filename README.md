@@ -53,7 +53,7 @@ Keyboard Shortcuts
 | R              | Rotate image right |
 | L              | Rotate image left  |
 | S              | Save to CSV        |
-| Cmd + Q        | Quit               |
+| Cmd/Ctrl + Q   | Quit               |
 | Cmd + Scroll   | Window Width       |
 | Shift + Scroll | Window Center      |
 
