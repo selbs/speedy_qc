@@ -1,4 +1,4 @@
-Speedy QC for Desktop <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="250" style="float: right;">
+Speedy QC for Desktop <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
 =====================
 
 Speedy QC is a DICOM viewer and labeller for single DICOM files in a directory, i.e. X-rays. The program may be
