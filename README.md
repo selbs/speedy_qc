@@ -1,8 +1,9 @@
 <!-- Project Title and Logo -->
-<div style="display: flex; justify-content: space-between; align-items: center;">
-  <h1 style="font-size: 24px;">Speedy QC for Desktop</h1>
-  <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="100">
+<div style="display: flex; justify-content: flex-start; align-items: center;">
+  <h1 style="margin: 0 16px 0 0;">Speedy QC for Desktop</h1>
+  <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="50" style="margin: 0;">
 </div>
+
 
 
 
