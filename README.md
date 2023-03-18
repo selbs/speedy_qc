@@ -1,4 +1,6 @@
-Speedy QC for Desktop ![App Logo](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png)
+Speedy QC for Desktop <div style="text-align: right"> <img src=https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png> </div>!
+
+[App Logo](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png)
 =====================
 
 ![Screenshot](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/screenshot.png)
