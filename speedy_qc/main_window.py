@@ -41,8 +41,8 @@ class CustomGraphicsView(QGraphicsView):
     the DICOM images and is the central widget of the main window.
 
     Methods:
-        - zoom_in (self, factor: float): Zoom in by a default factor of 1.2 (20%).
-        - zoom_out (self, factor: float): Zoom out by a default factor of 0.8 (20%).
+        - zoom_in (self): Zoom in by a factor of 1.2 (20%).
+        - zoom_out (self): Zoom out by a factor of 0.8 (20%).
         - on_main_window_resized (self): Resize the image and maintain the same zoom when the main window is resized.
         - mousePressEvent (self, event: QMouseEvent): Start drawing a bounding box when the left mouse button is
                                 pressed.
@@ -77,21 +77,23 @@ class CustomGraphicsView(QGraphicsView):
         if isinstance(parent, MainWindow):
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
 
-    def zoom_in(self, factor: int = 1.2):
+    def zoom_in(self):
         """
-        Zoom in by a default factor of 1.2 (20%).
+        Zoom in by a factor of 1.2 (20%).
 
         :param factor: float, the zoom factor.
         """
+        factor = 1.2
         self.zoom *= factor
         self.scale(factor, factor)
 
-    def zoom_out(self, factor: int = 0.8):
+    def zoom_out(self):
         """
-        Zoom out by a default factor of 0.8 (20%).
+        Zoom out by a factor of 0.8 (20%).
 
         :param factor: float, the zoom factor.
         """
+        factor = 0.8
         self.zoom /= factor
         self.scale(factor, factor)
 
@@ -408,6 +410,16 @@ class MainWindow(QMainWindow):
         self.zoom_out_action = QAction(self.icons['zoom_out'], "Zoom Out", self)
         self.image_toolbar.addAction(self.zoom_in_action)
         self.image_toolbar.addAction(self.zoom_out_action)
+
+        # Set scrollbar style (too dark with qt material dark theme...)
+        self.image_view.setStyleSheet(f"""
+            QScrollBar::handle:vertical {{
+                background: {get_theme('dark_blue.xml')['primaryColor']};
+                }}
+            QScrollBar::handle:horizontal {{
+                background: {get_theme('dark_blue.xml')['primaryColor']};
+                }}
+        """)
 
         # Create sliders for windowing
         self.window_center_label = QAction(self.icons['wc'], "Window Center", self)
