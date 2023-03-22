@@ -993,14 +993,13 @@ class MainWindow(QMainWindow):
         """
         Save as dialog.
         """
-        # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
         file_dialog = QFileDialog(self, 'Save to JSON', self.default_directory,
                                   'JSON Files (*.json)')
-        file_dialog.setFileMode(QFileDialog.FileMode.AnyFile)
+        file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         file_dialog.setDefaultSuffix("json")
         file_dialog.selectFile('untitled.json')
-        file_dialog.exec()
-        if file_dialog.DialogCode.Accepted:
+
+        if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
             save_path = file_dialog.selectedFiles()[0]
             self.save_json(save_path)
             self.default_directory = file_dialog.directory().path()
