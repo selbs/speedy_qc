@@ -36,5 +36,6 @@ setup(
         "setuptools>=42.0.0",
         "python-gdcm>=3.0.21",
         "py2app>=0.28.5",
+        "matplotlib>=3.4.3",
     ],
 )

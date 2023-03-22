@@ -2,6 +2,11 @@
 main_window.py
 
 This module contains the main window of the application.
+
+Classes:
+    - MainWindow: Main window of the application.
+    - CustomGraphicsView: Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes.
+    - BoundingBoxItem: Custom graphics item to draw bounding boxes.
 """
 
 import os
@@ -18,6 +23,8 @@ from PyQt6.QtCore import QTimer
 import datetime
 import json
 import math
+from typing import Optional, Dict, List, Tuple
+import matplotlib.pyplot as plt
 
 from .custom_windows import AboutMessageBox
 from .utils import ConnectionManager, open_yml_file, setup_logging
@@ -27,40 +34,27 @@ config_file = settings.value("last_config_file", os.path.join(os.path.dirname(os
 config_data = open_yml_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
-# Set the default colors for the icons
-qta.set_defaults(
-    color=get_theme("dark_blue.xml")['primaryLightColor'],
-    color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
-    color_active=get_theme("dark_blue.xml")['primaryColor'],
-)
-
-# Set the icons dictionary used in the main window
-icons = {
-    'save': qta.icon("mdi.content-save-all"),
-    'next': qta.icon("mdi.arrow-right-circle"),
-    'prev': qta.icon("mdi.arrow-left-circle"),
-    'ww': qta.icon("mdi.arrow-expand-horizontal"),
-    'wc': qta.icon("mdi.format-horizontal-align-center"),
-    'inv': qta.icon("mdi.invert-colors"),
-    'rot_right': qta.icon("mdi.rotate-right"),
-    'rot_left': qta.icon("mdi.rotate-left"),
-    'zoom_in': qta.icon("mdi.magnify-plus"),
-    'zoom_out': qta.icon("mdi.magnify-minus"),
-    'exit': qta.icon("mdi.exit-to-app"),
-    'reset_win': qta.icon("mdi.credit-card-refresh"),
-    'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
-    'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
-    'question': qta.icon("mdi.help-circle", color="white", scale=2)
-}
-
-
 
 class CustomGraphicsView(QGraphicsView):
     """
     Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes. This class is used to display
     the DICOM images and is the central widget of the main window.
+
+    Methods:
+        - zoom_in (self, factor: float): Zoom in by a default factor of 1.2 (20%).
+        - zoom_out (self, factor: float): Zoom out by a default factor of 0.8 (20%).
+        - on_main_window_resized (self): Resize the image and maintain the same zoom when the main window is resized.
+        - mousePressEvent (self, event: QMouseEvent): Start drawing a bounding box when the left mouse button is
+                                pressed.
+        - mouseMoveEvent (self, event: QMouseEvent): Update the bounding box when the mouse is moved.
+        - mouseReleaseEvent (self, event: QMouseEvent): Finish drawing the bounding box when the left mouse button is
+                                released.
+        - set_current_finding (self, finding: str, color: QColor): Set the current finding/checkbox to give context to
+                                any bounding box drawn.
+        - remove_all_bounding_boxes (self): Remove all bounding boxes from the scene.
+        - add_bboxes (self, rect_items: dict): Add previously drawn bounding boxes to the scene.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the custom graphics view.
         """
@@ -83,7 +77,7 @@ class CustomGraphicsView(QGraphicsView):
         if isinstance(parent, MainWindow):
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
 
-    def zoom_in(self, factor=1.2):
+    def zoom_in(self, factor: int = 1.2):
         """
         Zoom in by a default factor of 1.2 (20%).
 
@@ -92,7 +86,7 @@ class CustomGraphicsView(QGraphicsView):
         self.zoom *= factor
         self.scale(factor, factor)
 
-    def zoom_out(self, factor=0.8):
+    def zoom_out(self, factor: int = 0.8):
         """
         Zoom out by a default factor of 0.8 (20%).
 
@@ -109,7 +103,7 @@ class CustomGraphicsView(QGraphicsView):
             self.fitInView(self.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self.scale(self.zoom, self.zoom)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent):
         """
         Start drawing a bounding box when the left mouse button is pressed.
 
@@ -127,7 +121,7 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[self.current_finding] = [self.start_rect]
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent):
         """
         Update the size of the bounding box as the mouse is moved.
 
@@ -141,7 +135,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.start_rect.setRect(QRectF(self.start_rect.rect().x(), self.start_rect.rect().y(), width, height))
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent):
         """
         Stop drawing the bounding box when the left mouse button is released.
 
@@ -152,7 +146,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.start_rect = None
         super().mouseReleaseEvent(event)
 
-    def set_current_finding(self, finding, color):
+    def set_current_finding(self, finding: str, color: QColor):
         """
         Set the current finding and color to be used when drawing bounding boxes.
 
@@ -171,7 +165,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.scene().removeItem(bbox)
         self.rect_items.clear()
 
-    def add_bboxes(self, rect_items):
+    def add_bboxes(self, rect_items: Dict[str, List]):
         """
         Add previously drawn bounding boxes to the scene.
 
@@ -190,6 +184,9 @@ class BoundingBoxItem(QGraphicsRectItem):
     """
     Custom graphics item to handle drawing bounding boxes on DICOM images.
     This class inherits from QGraphicsRectItem and provides selectable, movable, and removable bounding boxes.
+
+    Methods:
+        - contextMenuEvent: Show a context menu when the bounding box is right-clicked, allowing them to be removed.
     """
     def __init__(self, rect, color, parent=None):
         """
@@ -206,7 +203,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(True)
         self.setPen(QPen(color, 5))
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         """
         Show a context menu when the bounding box is right-clicked, allowing them to be removed.
 
@@ -222,17 +219,61 @@ class BoundingBoxItem(QGraphicsRectItem):
 class MainWindow(QMainWindow):
     """
     Main window for the application.
+
+    Methods:
+        - prep_first_image (self): Prepare the bounding boxes to display the first image.
+        - init_connections (self): Initialize the connections between the UI elements and their corresponding functions.
+        - backup_file (self): Save backup file if triggered by the timer.
+        - wheelEvent (self, event: QWheelEvent): Changes windowing when the mouse wheel is scrolled with the Ctrl/Cmd
+                                or Shift key pressed.
+        - open_findings_yml (self): Open the relevant config .yml file with the settings for the app.
+        - on_text_changed (self): Update the notes dictionary when the text in the text box is changed.
+        - invert_greyscale (self): Invert the greyscale of the image.
+        - rotate_image_left (self): Rotate the image 90 degrees to the left.
+        - rotate_image_right (self): Rotate the image 90 degrees to the right.
+        - apply_stored_rotation (self): Restore any rotation previously applied to the image.
+        - rotate_bounding_boxes (self, filename: str, rotation_angle: int, reverse: bool = False): Rotate the bounding
+                                boxes to match the image is rotation.
+        - resizeEvent (self, event: QResizeEvent): Trigger the CustomGraphicsView to handle resizing and zoom of the image when
+                    the window is resized.
+        - load_file (self): Load the DICOM file at the given index and apply the look-up tables.
+        - load_image (self): Add the image to the scene.
+        - update_image (self): Update the image with the applied windowing.
+        - create_checkboxes (self): Create the checkboxes for the findings from the config file
+        - set_checkbox_toolbar (self): Set up the checkbox toolbar on the right of the window.
+        - restore_saved_state (self): Restore the saved state of the checkboxes from the QSettings.
+        - reset_window_sliders (self): Reset the windowing sliders to their default values.
+        - change_image (self, direction: str, prev_failed: bool = False): Load the next or previous image in the
+                                directory.
+        - previous_image (self): Load the previous image in the directory using change_image.
+        - next_image (self, prev_failed: bool = False): Load the next image in the directory using change_image.
+        - is_image_viewed (self): Check if the image has been viewed previously.
+        - set_checkbox_value (self): Set the checkbox value to True or False when clicked.
+        - keyPressEvent (self, event: QKeyEvent): Handle key presses for the shortcuts.
+        - save_settings (self): Save settings to the QSettings.
+        - save_to_json (self): Direct the save process to 'save as' dialog or just to save to the current file.
+        - save_as (self): Creates and handles a dialog to save the current outputs to a new location.
+        - save_json (self, selected_file: str): Save the current outputs to a JSON file.
+        - load_from_json (self): Load progress from a JSON file.
+        - load_bounding_box (self, file: str, finding: str, raw_rect: tuple): Load the bounding box from the JSON file
+                                and convert into BoundingBoxItem instance.
+        - on_checkbox_changes (self, state: int): Triggered when the checkbox state is changed and updates the UI.
+        - assign_colours_to_findings (self): Assign a colour to each finding/checkbox.
+        - closeEvent (self, event: QCloseEvent): Triggered when the window is closed and saves the settings.
+        - init_menus (self): Initialize the menus for the main window.
+        - show_about (self): Show the 'About' window.
+        - quit_app (self): Quit the application and disconnect all signals.
     """
     resized = pyqtSignal()
 
-    def __init__(self, dir_path):
+    def __init__(self, dir_path: str):
         """
         Initialize the main window.
+
         :param dir_path: str, the path to the directory containing the DICOM files.
         """
         super().__init__()
         # Initialize UI
-        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
         self.connection_manager = ConnectionManager()
         self.about_box = AboutMessageBox()
         self.setMouseTracking(True)
@@ -242,15 +283,40 @@ class MainWindow(QMainWindow):
         self.current_index = 0
         self.checkboxes = {}
         self.colors = {}
-        self.icons = icons
         self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
         self.dir_path = dir_path
 
         # Set the initial window size
-        self.resize(1200, 900)
+        self.resize(1250, 950)
+
+        # Set the default colors for the icons
+        qta.set_defaults(
+            color=get_theme("dark_blue.xml")['primaryLightColor'],
+            color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
+            color_active=get_theme("dark_blue.xml")['primaryColor'],
+        )
+
+        # Set the icons dictionary used in the main window
+        self.icons = {
+            'save': qta.icon("mdi.content-save-all"),
+            'next': qta.icon("mdi.arrow-right-circle"),
+            'prev': qta.icon("mdi.arrow-left-circle"),
+            'ww': qta.icon("mdi.arrow-expand-horizontal"),
+            'wc': qta.icon("mdi.format-horizontal-align-center"),
+            'inv': qta.icon("mdi.invert-colors"),
+            'rot_right': qta.icon("mdi.rotate-right"),
+            'rot_left': qta.icon("mdi.rotate-left"),
+            'zoom_in': qta.icon("mdi.magnify-plus"),
+            'zoom_out': qta.icon("mdi.magnify-minus"),
+            'exit': qta.icon("mdi.exit-to-app"),
+            'reset_win': qta.icon("mdi.credit-card-refresh"),
+            'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
+            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
+            'question': qta.icon("mdi.help-circle", color="white", scale=2)
+        }
 
         # Set the window icon
-        icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
+        icon_path = os.path.join(os.path.dirname(__file__), 'assets/icns/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
         # Set the central widget to the image viewer
@@ -283,6 +349,7 @@ class MainWindow(QMainWindow):
 
         # Now set up the main window layout and toolbars
         main_layout = QVBoxLayout()
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
         # Create the image scene and set as the central widget
         self.image_scene = QGraphicsScene(self)
@@ -299,6 +366,12 @@ class MainWindow(QMainWindow):
 
         # Create the navigation toolbar
         self.file_tool_bar = QToolBar(self)
+        # Create the logo action
+        logo_path = os.path.join(os.path.dirname(__file__), 'assets/1x/white_panel.png')
+        logo_pixmap = QPixmap(logo_path)
+        self.logoAction = QAction(QIcon(logo_pixmap), "&About", self)
+        self.file_tool_bar.addAction(self.logoAction)
+        # Create exit and save action buttons
         self.exitAction = QAction(self.icons['exit'], "&Exit", self)
         self.file_tool_bar.addAction(self.exitAction)
         self.saveAction = QAction(self.icons['save'], "&Save", self)
@@ -419,8 +492,9 @@ class MainWindow(QMainWindow):
         self.connection_manager.connect(self.nextAction.triggered, self.next_image)
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
+        self.connection_manager.connect(self.logoAction.triggered, self.show_about)
 
-    def backup_file(self):
+    def backup_file(self) -> List[str]:
         """
         Backs up the current file to a backup folder when triggered by the timer.
         """
@@ -482,7 +556,7 @@ class MainWindow(QMainWindow):
         else:
             super().wheelEvent(event)
 
-    def open_findings_yml(self):
+    def open_findings_yml(self) -> Dict:
         """
         Opens the config .yml file and returns the data, including the list of findings/checkboxes,
         the maximum number of backups, the backup directory and the log directory.
@@ -548,7 +622,7 @@ class MainWindow(QMainWindow):
         rotation_angle = self.rotation.get(self.file_list[self.current_index], 0)
         self.image = np.rot90(self.image, k=rotation_angle // 90)
 
-    def rotate_bounding_boxes(self, filename, rotation_angle, reverse=False):
+    def rotate_bounding_boxes(self, filename: str, rotation_angle: int, reverse: bool = False):
         """
         Rotates the bounding boxes around the center of the image to match the image rotation.
 
@@ -591,7 +665,7 @@ class MainWindow(QMainWindow):
                     # Update the bounding box rect
                     bbox.setRect(rect)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent):
         """
         Emits a signal to update the image size and zoom when the window is resized.
 
@@ -833,7 +907,7 @@ class MainWindow(QMainWindow):
         """
         self.change_image("next", prev_failed)
 
-    def is_image_viewed(self):
+    def is_image_viewed(self) -> bool:
         """
         Checks if the current image has been viewed previously.
         """
@@ -851,7 +925,7 @@ class MainWindow(QMainWindow):
             checkbox_value = self.checkbox_values.get(filename, False)[cbox]
             self.checkboxes[cbox].setChecked(checkbox_value)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent):
         """
         Handles key presses as shortcuts.
 
@@ -922,7 +996,7 @@ class MainWindow(QMainWindow):
         else:
             return False
 
-    def save_json(self, selected_file):
+    def save_json(self, selected_file: str):
         """
         Saves the current outputs to a JSON file.
 
@@ -966,8 +1040,7 @@ class MainWindow(QMainWindow):
         with open(selected_file, 'w') as file:
             json.dump(data, file, indent=2)
 
-
-    def load_from_json(self):
+    def load_from_json(self) -> Tuple[Optional[List[str]], bool]:
         """
         Loads the previous outputs from a JSON file.
         """
@@ -1027,7 +1100,7 @@ class MainWindow(QMainWindow):
         elif clicked_button == cancel_button:
             QApplication.quit()
 
-    def load_bounding_box(self, file, finding, raw_rect):
+    def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
         """
         Loads a bounding box object from the x, y, height, width stored in the JSON file and adds it to the appropriate
         bboxes dictionary entry.
@@ -1044,7 +1117,7 @@ class MainWindow(QMainWindow):
         else:
             self.bboxes[file][finding] = [bbox_item]
 
-    def on_checkbox_changed(self, state):
+    def on_checkbox_changed(self, state: int):
         """
         Updates the checkbox values when a checkbox is changed, updates the cursor mode, and sets the current finding
         in the image view based on the checkbox state.
@@ -1069,18 +1142,17 @@ class MainWindow(QMainWindow):
 
     def assign_colors_to_findings(self):
         """
-        Assigns a color to each finding/checkbox.
+        Assigns a color to each finding/checkbox using the matplotlib rainbow color map.
         """
-        colors = [
-            QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255),
-            QColor(255, 255, 0), QColor(0, 255, 255), QColor(255, 0, 255),
-        ]
+        num_colors = len(self.findings)
+        cmap = plt.get_cmap("gist_rainbow")
+        colors = [QColor(*(255 * np.array(cmap(i)[:3])).astype(int)) for i in np.linspace(0, 1, num_colors)]
 
         for idx, finding in enumerate(self.findings):
             color = colors[idx % len(colors)]
             self.colors[finding] = color
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         """
         Handles the close event.
 
@@ -1147,7 +1219,7 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         """
-        Shows the about box.
+        Shows the About box from the menu.
         """
         self.about_box.exec()
 

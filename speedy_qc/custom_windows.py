@@ -15,6 +15,7 @@ import logging
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
+from typing import Optional
 
 from .utils import ConnectionManager
 
@@ -25,7 +26,7 @@ class AboutMessageBox(QDialog):
     """
     A custom QDialog for displaying information about the application from the About option in the menu.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the AboutMessageBox.
 
@@ -135,7 +136,7 @@ class LoadMessageBox(QDialog):
     the user to select the config file to load into the application and allows them to launch the
     configuration wizard to customise Speedy QC.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the LoadMessageBox.
 
@@ -273,9 +274,12 @@ class LoadMessageBox(QDialog):
         self.custom_return_code = 42
         self.accept()
 
-    def exec(self):
+    def exec(self) -> int:
         """
         Overwrite the exec method to return a custom return code for the configuration wizard.
+
+        :return: int, 1 if the user clicks "OK", 0 if the user clicks "Cancel", 42 if the user
+                                clicks "Configuration Wizard"
         """
         result = super().exec()
         try:
@@ -285,9 +289,7 @@ class LoadMessageBox(QDialog):
                 return 1
             else:
                 return 0
-
-
-    def save_last_config(self, config_file):
+    def save_last_config(self, config_file: str):
         """
         Save the selected config file to QSettings
         """

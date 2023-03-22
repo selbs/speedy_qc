@@ -27,11 +27,21 @@ class ConfigurationWizard(QWizard):
     for backup and log files. Can be run from the initial dialog box, from the command line,
     or from Python.
 
-    Attributes:
-        config_path (str): The path to the configuration file.
-        config_data (dict): The configuration data loaded from the file.
+    Methods:
+        - create_label_page: Creates the first page of the wizard, allowing users to customize
+                                the labels of the checkboxes.
+        - create_backup_page: Creates the second page of the wizard, allowing users to customize
+                                the maximum number of backup files and the directories for backup
+                                and log files.
+        - add_label: Adds a new label to the label page for a new checkbox/finding.
+        - create_save_page: Creates the third page of the wizard, allowing users to save the
+                                configuration to a .yml file.
+        - update_combobox_stylesheet: Updates the stylesheet of the QComboBoxes in the label page
+                                        to make the options more visible.
+        - update_combobox_state: Updates the QComboBox on the save page with the list of existing .yml files.
+        - accept: Saves the configuration to a .yml file and closes the wizard.
     """
-    def __init__(self, config_path):
+    def __init__(self, config_path: str):
         super().__init__()
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
 

@@ -23,9 +23,11 @@ Classes:
 import logging.config
 import yaml
 import os
+from typing import Dict, Tuple
+import PyQt6.QtCore as QtCore
 
 
-def create_default_config():
+def create_default_config() -> Dict:
     """
     Creates a default config file in the speedy_qc directory.
 
@@ -48,7 +50,7 @@ def create_default_config():
     return default_config
 
 
-def open_yml_file(config_path):
+def open_yml_file(config_path: str) -> Dict:
     """
     Opens a config .yml file and returns the data. If the file does not exist, it will look
     for the default config file, otherwise, it will create a new default config file.
@@ -56,8 +58,6 @@ def open_yml_file(config_path):
     :param config_path: str, the path to the config file.
     :return: dict, the loaded configuration data from the YAML file.
     """
-
-
     if not os.path.isfile(config_path):
         # If the config file does not exist, look for the default config file
         print(f"Could not find config file at {config_path}")
@@ -81,7 +81,7 @@ def open_yml_file(config_path):
     return config_data
 
 
-def setup_logging(log_out_path):
+def setup_logging(log_out_path: str) -> Tuple[logging.Logger, logging.Logger]:
     """
     Sets up the logging for the application. The log file will be saved in the log_out_path in the directory
     specified in the chosen config .yml file.
@@ -101,7 +101,7 @@ class Connection:
     """
     A class to manage a single connection between a signal and a slot in a Qt application.
     """
-    def __init__(self, signal, slot):
+    def __init__(self, signal: QtCore.pyqtSignal, slot: callable):
         self.signal = signal
         self.slot = slot
         self.connection = self.signal.connect(self.slot)
@@ -120,11 +120,11 @@ class ConnectionManager:
     def __init__(self):
         self.connections = {}
 
-    def connect(self, signal, slot):
+    def connect(self, signal: QtCore.pyqtSignal, slot: callable):
         """
         Connects a signal to a slot and stores the connection in a dictionary.
 
-        :param signal: QtCore.Signal, the signal to connect.
+        :param signal: QtCore.pyqtSignal, the signal to connect.
         :param slot: callable, the slot (function or method) to connect to the signal.
         """
         connection = Connection(signal, slot)
