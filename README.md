@@ -113,24 +113,27 @@ Executable Application
 ----------------------
 
 The executable application may be downloaded from:
-- Mac OS X:  [here](https://www.example_link.com). 
+- Mac OS X:  [add link](https://www.example_link.com). 
   - Universal binary for both 86x64 (*Intel*) and arm64 (*Apple Silicon*) Macs. 
-- Windows: [here](https://www.example_link.com)
+- Windows: [add link](https://www.example_link.com)
 
 ### Creating an Executable
 
 An executable can be created using `py2app` for Mac OS X or `py2exe` for Windows. The customised `setup_py2app_****.py`
-scripts have been included for `py2app` for both 86x64 and arm64 architectures on OS X. These may work out of the box
-but may need some tweaking for your local environment. For example, if you are using a different version of Python
-(3.10) used in development or if the libffi library is in a different directory (see below).
+scripts have been included for `py2app` for both 86x64 (*Intel*) and arm64 (*Apple Silicon*) architectures on OS X. 
+These may work out of the box but may need some tweaking for your local environment. For example, if the libffi library 
+is in a different directory (see below) or if you are using a different version of Python (3.10) to that used in 
+development (e.g. a `|` operator is used to join dictionaries for example, which is new in Python 3.9, so this would need
+changing for Python 3.8).
 
-To create an executable with `py2app` on 86x64, the following command can be used from inside the `speedy_qc` directory:
+To create an executable with `py2app` on 86x64, the following command can be used from inside the `speedy_qc` directory
+on a 86x64 Mac, or using an 86x64 conda environment or using Rosetta 2 on a arm64 Mac:
 
 ```bash
 python setup_86x64.py py2app
 ```
 
-For arm64, the following command can be used:
+For arm64, the following command can be used, but note that if using conda, it must be an arm64 conda environment:
 
 ```bash
 python setup_arm64.py py2app
