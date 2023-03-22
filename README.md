@@ -1,11 +1,12 @@
 Speedy QC for Desktop <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
 =====================
 
-Speedy QC is a DICOM viewer and customisable labeller for single DICOM images in a directory, i.e. X-rays. The program may be
+Speedy QC is a DICOM viewer and customisable labeller for DICOM images. The program may be
 used to quickly check the quality of the images and/or to label them with the required ground truth for
-training a deep learning model.
+training a deep learning model. Bounding boxes may be added to demarcate the findings.
 
-The program may be run from the command line or as an executable, explained below.
+The program may be run from the command line or as an executable, which can be downloaded or 
+created from the source code.
 
 Primarily for use on Mac OS X, but should work on Linux and Windows.
 
@@ -20,8 +21,8 @@ Install the package using pip:
 pip install git+https://github.com/selbs/speedy_qc
 ```
 
-It is recommended to install the package in a virtual environment with Python 3.10, used in development.
-However, other versions of Python 3 should still work.
+It is recommended to install the package in a Python 3.10 virtual environment as it was this
+version of python used in development. However, other versions of Python 3 should still work.
 
 You can also clone the package from GitHub and install it manually:
 
@@ -39,6 +40,20 @@ Run the following command in the command line:
 ```bash
 speedy_qc
 ```
+
+Alternatively, the app may be run from an executable (see below).
+
+### Outputs
+
+Outputs are stored in a .json file in a directory chosen by the user.
+
+### Bounding Boxes
+
+- Added to the image by clicking and dragging the mouse.
+- Multiple boxes may be added to each image and for each finding.
+- The box is labelled with the name of the last checked checkbox.
+- Moved by clicking and dragging the box. 
+- Deleted by right-clicking on the box and selecting `Remove` from the menu.
 
 Keyboard Shortcuts
 ------------------
@@ -62,24 +77,47 @@ Note: Cmd + Scroll and Shift + Scroll are only currently available on Mac OS X.
 Backup Files
 ------------
 
-Work is automatically backed up in the user's home directory (`~`) in the folder `.speedy_qc_backups`.
-This is a hidden folder and will hold up to the latest ten backups. A backup will be made every ten minutes to
+Work is automatically backed up in the user's home directory (`~`) in the folder `~/speedy_qc/backups`.
+By default, this will hold up to the latest ten backups and a backup will be made every ten minutes to
 allow for recovery in case of a crash. The number of backups and the backup directory can be customised
-in the `config.yml` file.
+in the configuration wizard or the `config.yml` file.
 
 Customisation
 -------------
 
-List the required checkboxes in the `config.yml` file and the checkboxes will be automatically updated. 
-The maximum number of backups and the backup directory can also be changed.
+The program can be customised to suit the user's needs. The following options are available:
+- Select which checkboxes are required
+- Change the maximum number of backups
+- Change the backup directory
+- Change the log directory
 
-If you're using an executable, the config.yml file can still be edited in 
-`Speedy QC.app/Contents/Resources/config.yml`, which can be edited in the terminal or if using Mac OS X,
-you can right-click on the executable and select `Show Package Contents`, then navigate to the `Resources` folder.
+### Configuration Wizard
+
+The configuration wizard can be run from the opening dialog of the app.
+
+If installed by pip, the configuration wizard can also be run from the command line using the following:
+
+```bash
+speedy_config
+```
+
+### YAML File
+
+These configuration settings are stored in the `config.yml` file in the `speedy_qc` directory. This
+can be edited directly if desired. If you're using an executable, the `config.yml` file can be edited in 
+`Speedy QC.app/Contents/Resources/config.yml`, which accessible through the terminal or if using Mac OS X, by
+right-clicking on the executable and selecting `Show Package Contents`.
 
 
-Creating an Executable
+Executable Application
 ----------------------
+
+The executable application may be downloaded from:
+- Mac OS X:  [here](https://www.example_link.com). 
+  - Universal binary for both 86x64 (*Intel*) and arm64 (*Apple Silicon*) Macs. 
+- Windows: [here](https://www.example_link.com)
+
+### Creating an Executable
 
 An executable can be created using `py2app` for Mac OS X or `py2exe` for Windows. The customised `setup_py2app_****.py`
 scripts have been included for `py2app` for both 86x64 and arm64 architectures on OS X. These may work out of the box
@@ -115,7 +153,7 @@ In both cases, replace '86x64' with 'arm64' for the arm64 executable as necessar
 
 `PyInstaller` may also work to create an executable but has not been tested.
 
-### Creating a Universal Binary
+#### Creating a Universal Binary
 
 A universal binary can be created by combining the two executables created by `py2app`. This can be done using the
 `lipo` command after both executables have been created (e.g. inside arm64 and 86x64 conda environments). 
@@ -127,7 +165,7 @@ cp -R "dist/arm64/Speedy QC.app/" "dist/universal/Speedy QC.app/"
 lipo -create -output "dist/universal/Speedy QC.app/Contents/MacOS/Python" "dist/arm64/Speedy QC.app/Contents/MacOS/Python" "dist/86x64/Speedy QC.app/Contents/MacOS/Python"
 ```
 
-### libffi
+#### libffi
 
 The libffi library is required for the executable to run on MacOS. This can be installed using Homebrew:
 

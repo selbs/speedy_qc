@@ -13,6 +13,7 @@ setup(
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
+            'speedy_config=speedy_qc.config_wizard:main'
         ]
     },
     classifiers=[

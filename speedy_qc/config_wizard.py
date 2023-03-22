@@ -227,8 +227,11 @@ if __name__ == '__main__':
     # Set the directory of the main.py file as the default save directory
     default_dir = os.path.dirname(os.path.abspath(__file__))
 
+    settings = QSettings('SpeedyQC', 'DicomViewer')
+    config_file = settings.value('config_file', os.path.join(default_dir, 'config.yml'))
+
     # Create the configuration wizard
-    wizard = ConfigurationWizard(os.path.join(default_dir, 'config.yml'))
+    wizard = ConfigurationWizard(config_file)
 
     # Run the wizard
     wizard.show()
