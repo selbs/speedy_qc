@@ -7,8 +7,8 @@ This module initializes the application, sets the theme and icon styles, and dis
 configuration wizard based on user input.
 
 Functions:
-    load_dicom_dialog() -> str: Prompts the user to select a directory containing DICOM files.
     main(theme: str, material_theme: str, icon_theme: str) -> None: Initializes and runs the application.
+    load_dicom_dialog() -> str: Prompts the user to select a directory containing DICOM files.
 
 Usage:
     Run this module as a script to start the Speedy QC application:

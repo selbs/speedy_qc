@@ -2,6 +2,11 @@
 main_window.py
 
 This module contains the main window of the application.
+
+Classes:
+    - MainWindow: Main window of the application.
+    - CustomGraphicsView: Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes.
+    - BoundingBoxItem: Custom graphics item to draw bounding boxes.
 """
 
 import os
@@ -59,6 +64,20 @@ class CustomGraphicsView(QGraphicsView):
     """
     Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes. This class is used to display
     the DICOM images and is the central widget of the main window.
+
+    Methods:
+        - zoom_in (self, factor: float): Zoom in by a default factor of 1.2 (20%).
+        - zoom_out (self, factor: float): Zoom out by a default factor of 0.8 (20%).
+        - on_main_window_resized (self): Resize the image and maintain the same zoom when the main window is resized.
+        - mousePressEvent (self, event: QMouseEvent): Start drawing a bounding box when the left mouse button is
+                                pressed.
+        - mouseMoveEvent (self, event: QMouseEvent): Update the bounding box when the mouse is moved.
+        - mouseReleaseEvent (self, event: QMouseEvent): Finish drawing the bounding box when the left mouse button is
+                                released.
+        - set_current_finding (self, finding: str, color: QColor): Set the current finding/checkbox to give context to
+                                any bounding box drawn.
+        - remove_all_bounding_boxes (self): Remove all bounding boxes from the scene.
+        - add_bboxes (self, rect_items: dict): Add previously drawn bounding boxes to the scene.
     """
     def __init__(self, parent=None):
         """
@@ -190,6 +209,9 @@ class BoundingBoxItem(QGraphicsRectItem):
     """
     Custom graphics item to handle drawing bounding boxes on DICOM images.
     This class inherits from QGraphicsRectItem and provides selectable, movable, and removable bounding boxes.
+
+    Methods:
+        - contextMenuEvent: Show a context menu when the bounding box is right-clicked, allowing them to be removed.
     """
     def __init__(self, rect, color, parent=None):
         """
@@ -222,12 +244,57 @@ class BoundingBoxItem(QGraphicsRectItem):
 class MainWindow(QMainWindow):
     """
     Main window for the application.
+
+    Methods:
+        - prep_first_image (self): Prepare the bounding boxes to display the first image.
+        - init_connections (self): Initialize the connections between the UI elements and their corresponding functions.
+        - backup_file (self): Save backup file if triggered by the timer.
+        - wheelEvent (self, event: QWheelEvent): Changes windowing when the mouse wheel is scrolled with the Ctrl/Cmd
+                                or Shift key pressed.
+        - open_findings_yml (self): Open the relevant config .yml file with the settings for the app.
+        - on_text_changed (self): Update the notes dictionary when the text in the text box is changed.
+        - invert_greyscale (self): Invert the greyscale of the image.
+        - rotate_image_left (self): Rotate the image 90 degrees to the left.
+        - rotate_image_right (self): Rotate the image 90 degrees to the right.
+        - apply_stored_rotation (self): Restore any rotation previously applied to the image.
+        - rotate_bounding_boxes (self, filename: str, rotation_angle: int, reverse: bool = False): Rotate the bounding
+                                boxes to match the image is rotation.
+        - resizeEvent (self, event: QResizeEvent): Trigger the CustomGraphicsView to handle resizing and zoom of the image when
+                    the window is resized.
+        - load_file (self): Load the DICOM file at the given index and apply the look-up tables.
+        - load_image (self): Add the image to the scene.
+        - update_image (self): Update the image with the applied windowing.
+        - create_checkboxes (self): Create the checkboxes for the findings from the config file
+        - set_checkbox_toolbar (self): Set up the checkbox toolbar on the right of the window.
+        - restore_saved_state (self): Restore the saved state of the checkboxes from the QSettings.
+        - reset_window_sliders (self): Reset the windowing sliders to their default values.
+        - change_image (self, direction: str, prev_failed: bool = False): Load the next or previous image in the
+                                directory.
+        - previous_image (self): Load the previous image in the directory using change_image.
+        - next_image (self, prev_failed: bool = False): Load the next image in the directory using change_image.
+        - is_image_viewed (self): Check if the image has been viewed previously.
+        - set_checkbox_value (self): Set the checkbox value to True or False when clicked.
+        - keyPressEvent (self, event: QKeyEvent): Handle key presses for the shortcuts.
+        - save_settings (self): Save settings to the QSettings.
+        - save_to_json (self): Direct the save process to 'save as' dialog or just to save to the current file.
+        - save_as (self): Creates and handles a dialog to save the current outputs to a new location.
+        - save_json (self, selected_file: str): Save the current outputs to a JSON file.
+        - load_from_json (self): Load progress from a JSON file.
+        - load_bounding_box (self, file: str, finding: str, raw_rect: tuple): Load the bounding box from the JSON file
+                                and convert into BoundingBoxItem instance.
+        - on_checkbox_changes (self, state: int): Triggered when the checkbox state is changed and updates the UI.
+        - assign_colours_to_findings (self): Assign a colour to each finding/checkbox.
+        - closeEvent (self, event: QCloseEvent): Triggered when the window is closed and saves the settings.
+        - init_menus (self): Initialize the menus for the main window.
+        - show_about (self): Show the 'About' window.
+        - quit_app (self): Quit the application and disconnect all signals.
     """
     resized = pyqtSignal()
 
     def __init__(self, dir_path):
         """
         Initialize the main window.
+
         :param dir_path: str, the path to the directory containing the DICOM files.
         """
         super().__init__()
@@ -1147,7 +1214,7 @@ class MainWindow(QMainWindow):
 
     def show_about(self):
         """
-        Shows the about box.
+        Shows the About box from the menu.
         """
         self.about_box.exec()
 
