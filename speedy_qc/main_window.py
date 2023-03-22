@@ -508,6 +508,13 @@ class MainWindow(QMainWindow):
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
+            self.checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
+                                                f"background-color: {self.colors[cbox].name()}; "
+                                                f"image: url(nocheck);"
+                                                f"border: 1px solid #999;"
+                                                f"width: 18px;"
+                                                f"height: 18px;"
+                                                f"}}")
             self.checkboxes[cbox].setChecked(bool(self.checkbox_values.get(filename, False).get(cbox, False)))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
 
