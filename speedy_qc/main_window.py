@@ -287,7 +287,7 @@ class MainWindow(QMainWindow):
         self.dir_path = dir_path
 
         # Set the initial window size
-        self.resize(1200, 900)
+        self.resize(1250, 950)
 
         # Set the default colors for the icons
         qta.set_defaults(
@@ -316,7 +316,7 @@ class MainWindow(QMainWindow):
         }
 
         # Set the window icon
-        icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
+        icon_path = os.path.join(os.path.dirname(__file__), 'assets/icns/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
         # Set the central widget to the image viewer
@@ -366,6 +366,12 @@ class MainWindow(QMainWindow):
 
         # Create the navigation toolbar
         self.file_tool_bar = QToolBar(self)
+        # Create the logo action
+        logo_path = os.path.join(os.path.dirname(__file__), 'assets/1x/white_panel.png')
+        logo_pixmap = QPixmap(logo_path)
+        self.logoAction = QAction(QIcon(logo_pixmap), "&About", self)
+        self.file_tool_bar.addAction(self.logoAction)
+        # Create exit and save action buttons
         self.exitAction = QAction(self.icons['exit'], "&Exit", self)
         self.file_tool_bar.addAction(self.exitAction)
         self.saveAction = QAction(self.icons['save'], "&Save", self)
@@ -486,6 +492,7 @@ class MainWindow(QMainWindow):
         self.connection_manager.connect(self.nextAction.triggered, self.next_image)
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
+        self.connection_manager.connect(self.logoAction.triggered, self.show_about)
 
     def backup_file(self) -> List[str]:
         """
