@@ -1,7 +1,9 @@
 backup_dir: ~/speedy_qc/backups
 checkboxes:
-- Checkbox 1
-- Checkbox 2
-- Checkbox 3
-max_backups: 10
+- QC1
+- QC2
+- QC3
+- QC4
+- QC5
 log_dir: ~/speedy_qc/logs
+max_backups: 10
