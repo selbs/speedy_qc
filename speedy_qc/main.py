@@ -17,6 +17,7 @@ def main():
 
     load_msg_box = LoadMessageBox()
     result = load_msg_box.exec()
+    print(result)
 
     dicom_dir = None
     if result == load_msg_box.DialogCode.Accepted:

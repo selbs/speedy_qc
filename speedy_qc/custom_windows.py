@@ -238,8 +238,14 @@ class LoadMessageBox(QDialog):
         self.accept()
 
     def exec(self):
-        super().exec()
-        return self.custom_return_code
+        result = super().exec()
+        try:
+            return self.custom_return_code
+        except AttributeError:
+            if result == self.DialogCode.Accepted:
+                return 1
+            else:
+                return 0
 
 
     def save_last_config(self, config_file):

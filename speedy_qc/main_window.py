@@ -136,18 +136,6 @@ class MainWindow(QMainWindow):
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
         self.colors = {}
-
-
-
-        settings.setValue('last_file', self.file_list[self.current_index])
-        settings.setValue('last_index', self.current_index)
-        settings.setValue("max_backups", self.max_backups)
-        settings.setValue("backup_dir", self.backup_dir)
-        settings.setValue("default_directory", self.default_directory)
-
-
-
-
         self.about_box = AboutMessageBox()
 
         icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')

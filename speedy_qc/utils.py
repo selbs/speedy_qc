@@ -2,9 +2,41 @@ import logging.config
 import yaml
 import os
 
+
+def create_default_config():
+    default_config = {
+        'checkboxes': ['QC1', 'QC2', 'QC3', 'QC4', 'QC5'],
+        'max_backups': 10,
+        'backup_dir': '~/speedy_qc/backups',
+        'log_dir': '~/speedy_qc/logs'
+    }
+
+    save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')
+
+    with open(save_path, 'w') as f:
+        yaml.dump(default_config, f)
+
+    return default_config
+
+
 def open_yml_file(config_path):
-    with open(config_path, 'r') as f:
-        config_data = yaml.safe_load(f)
+    if not os.path.isfile(config_path):
+        print(f"Could not find config file at {config_path}")
+        if os.path.isfile(os.path.abspath('./speedy_qc/config.yml')):
+            print(f"Using default config file at "
+                  f"{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')}")
+            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')
+            with open(config_path, 'r') as f:
+                config_data = yaml.safe_load(f)
+        else:
+            print(f"Could not find default config file at {config_path}")
+            print(f"Creating a new default config file at "
+                  f"{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')}")
+            config_data = create_default_config()
+    else:
+        with open(config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+
     return config_data
 
 
