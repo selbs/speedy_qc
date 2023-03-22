@@ -171,10 +171,9 @@ class LoadMessageBox(QDialog):
         left_layout.addWidget(icon_label)
 
         # Create a QLabel to display the website link
-        web_text = QLabel("<a href='https://www.example.com'>www.example.com</a>")
+        web_text = QLabel("<a href='https://github.com/selbs/speedy_qc'>https://github.com/selbs/speedy_qc</a>")
         web_text.setTextFormat(Qt.TextFormat.RichText)
         web_text.setAlignment(Qt.AlignmentFlag.AlignRight)
-        # web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
         web_text.setOpenExternalLinks(True)
         left_layout.addWidget(web_text)
 
