@@ -1,10 +1,7 @@
-backup_dir: ~/.speedy_qc_backups
-checkbox_labels:
-- Consolidation
-- Ground Glass Opacification
-- Support Apparatus
+backup_dir: ~/speedy_qc/backups
 checkboxes:
 - Checkbox 1
 - Checkbox 2
 - Checkbox 3
 max_backups: 10
+log_dir: ~/speedy_qc/logs

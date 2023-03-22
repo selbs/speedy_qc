@@ -8,14 +8,19 @@ from pydicom.pixel_data_handlers.util import apply_modality_lut, apply_voi_lut
 from qimage2ndarray import array2qimage
 from qt_material import get_theme
 import qtawesome as qta
-import yaml
 from PyQt6.QtCore import QTimer
 import datetime
 import json
 import math
 
 from .custom_windows import AboutMessageBox
-from .connection_manager import ConnectionManager
+from .utils import ConnectionManager, open_yml_file, setup_logging
+
+settings = QSettings('SpeedyQC', 'DicomViewer')
+config_file = settings.value("last_config_file", os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yml"))
+config_data = open_yml_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file))
+logger, console_msg = setup_logging(config_data['log_dir'])
+
 
 class CustomGraphicsView(QGraphicsView):
     def __init__(self, parent=None):
@@ -37,7 +42,6 @@ class CustomGraphicsView(QGraphicsView):
 
         if isinstance(parent, MainWindow):
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
-            # self.connections['resized'] = parent.resized.connect(self.on_main_window_resized)
 
     def zoom_in(self):
         factor = 1.2
@@ -90,15 +94,11 @@ class CustomGraphicsView(QGraphicsView):
         for finding, bboxes in self.rect_items.items():
             for bbox in bboxes:
                 self.scene().removeItem(bbox)
-            print('removing:', finding)
-            print(bboxes)
         self.rect_items.clear()
 
     def add_bboxes(self, rect_items):
         # Add previously drawn bounding boxes to the scene
         for finding, bboxes in rect_items.items():
-            print('adding:', finding)
-            print(bboxes)
             for bbox in bboxes:
                 self.scene().addItem(bbox)
                 if finding in self.rect_items:
@@ -131,11 +131,22 @@ class MainWindow(QMainWindow):
         self.connection_manager = ConnectionManager()
         # Set the initial window size
         self.resize(1200, 900)
-        self.default_directory = '.'
+        self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
         self.current_index = 0
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
         self.colors = {}
+
+
+
+        settings.setValue('last_file', self.file_list[self.current_index])
+        settings.setValue('last_index', self.current_index)
+        settings.setValue("max_backups", self.max_backups)
+        settings.setValue("backup_dir", self.backup_dir)
+        settings.setValue("default_directory", self.default_directory)
+
+
+
 
         self.about_box = AboutMessageBox()
 
@@ -172,7 +183,11 @@ class MainWindow(QMainWindow):
 
         self.dir_path = dir_path
         self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
-        self.findings, self.max_backups, self.backup_dir = self.open_findings_yml()
+        config = self.open_findings_yml()
+        self.findings = config['checkboxes']
+        self.max_backups = config['max_backups']
+        self.backup_dir = config['backup_dir']
+
         self.viewed_values = {f: False for f in self.file_list}
         self.notes = {f: "" for f in self.file_list}
         self.checkbox_values = {f: {finding: False for finding in self.findings} for f in self.file_list}
@@ -314,6 +329,7 @@ class MainWindow(QMainWindow):
         )
         self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
 
+
     def backup_file(self):
 
         backup_folder_path = self.backup_dir
@@ -367,12 +383,9 @@ class MainWindow(QMainWindow):
             super().wheelEvent(event)
 
     def open_findings_yml(self):
-
-        cbox_file = os.path.join(os.path.dirname(__file__), 'config.yml')
-        with open(cbox_file, 'r') as file:
-            data = yaml.load(file, Loader=yaml.FullLoader)
-
-        return data['checkboxes'], data['max_backups'], data['backup_dir']
+        last_config_file = settings.value("last_config_file", "config.yml")
+        cbox_file = os.path.join(os.path.dirname(__file__), last_config_file)
+        return open_yml_file(cbox_file)
 
     def on_text_changed(self):
         textbox = self.sender()
@@ -397,7 +410,6 @@ class MainWindow(QMainWindow):
         # Rotate the image by 90 degrees and update the display
         rotated_image = np.rot90(self.image, k=-1)
         self.rotation[self.file_list[self.current_index]] = (self.rotation[self.file_list[self.current_index]]-90) % 360
-        print(self.rotation[self.file_list[self.current_index]])
         self.image = rotated_image
         self.load_image()
         self.update_image()
@@ -458,9 +470,6 @@ class MainWindow(QMainWindow):
         self.resized.emit()
 
     def load_file(self):
-        print(self.dir_path)
-        print(self.current_index)
-        print(self.file_list)
         file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
 
         try:
@@ -481,6 +490,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to load file:\n{str(e)}", QMessageBox.StandardButton.Ok,
                                  defaultButton=QMessageBox.StandardButton.Ok)
             self.next_image(prev_failed=True)
+            logger.exception(f"Failed to load file: {file_path} - Message: {str(e)}")
 
     def load_image(self):
         # Load the image
@@ -563,7 +573,6 @@ class MainWindow(QMainWindow):
 
     def restore_from_saved_state(self):
         # Check for saved settings and restore last viewed file
-        settings = QSettings('MyApp', 'DicomViewer')
         if settings.contains('last_file') and settings.contains('last_index'):
             last_file = settings.value('last_file')
             last_index = settings.value('last_index')
@@ -720,9 +729,11 @@ class MainWindow(QMainWindow):
 
     def save_settings(self):
         # Save current file and index
-        settings = QSettings('SpeedyQC', 'DicomViewer')
         settings.setValue('last_file', self.file_list[self.current_index])
         settings.setValue('last_index', self.current_index)
+        settings.setValue("max_backups", self.max_backups)
+        settings.setValue("backup_dir", self.backup_dir)
+        settings.setValue("default_directory", self.default_directory)
 
     def save_to_json(self):
         if not self.loaded:
@@ -733,7 +744,6 @@ class MainWindow(QMainWindow):
             self.save_json(self.loaded_file)
 
     def save_as(self):
-        file_dialog = QFileDialog()
         # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
         file_dialog = QFileDialog(self, 'Save to JSON', self.default_directory,
                                   'JSON Files (*.json)')
@@ -745,6 +755,7 @@ class MainWindow(QMainWindow):
             save_path = file_dialog.selectedFiles()[0]
             self.save_json(save_path)
             self.default_directory = file_dialog.directory().path()
+            self.save_settings()
         else:
             return False
 
@@ -860,7 +871,6 @@ class MainWindow(QMainWindow):
         filename = self.file_list[self.current_index]
         cbox = self.sender().text()
         self.checkbox_values[filename][cbox] = bool(state)
-        settings = QSettings('SpeedyQC', 'DicomViewer')
         settings.setValue(filename, state)
 
         if state:

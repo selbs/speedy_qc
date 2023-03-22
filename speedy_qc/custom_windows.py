@@ -1,10 +1,14 @@
 import sys
 import os
+import logging
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 
-from .connection_manager import ConnectionManager
+from .utils import ConnectionManager
+
+logger = logging.getLogger(__name__)
+console_msg = logging.getLogger('consoleLog')
 
 class AboutMessageBox(QDialog):
     def __init__(self, parent=None):
@@ -124,19 +128,14 @@ class LoadMessageBox(QDialog):
 
         # Add the icon to the left side of the message box using a QLabel
         path = os.path.dirname(__file__)
-        print(path)
 
         # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
         grey_logo = QPixmap(path)
-        print(path)
+
         if grey_logo.isNull():
-            print("***WARNING***")
-            print("FAILED TO LOAD LOGO!")
-            print("******"*10)
-        else:
-            print("******"*10)
-            print(grey_logo)
+            logger.warning(f"Failed to load logo at path: {path}")
+
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
         left_layout.addWidget(icon_label)
@@ -165,15 +164,18 @@ class LoadMessageBox(QDialog):
 
 
         # Set up QSettings to remember the last config file used
-        self.settings = QSettings()
+        self.settings = QSettings('SpeedyQC', 'DicomViewer')
 
         # Create a QComboBox for selecting the config file
+
         self.config_combo = QComboBox()
-        self.config_combo.addItem("config.yml")
-        self.config_combo.addItem("other_config.yml")
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        for file in os.listdir(script_dir):
+            if file.endswith('.yml'):
+                self.config_combo.addItem(file)
 
         # Set the default value of the QComboBox to the last config file used
-        last_config_file = self.settings.value("last_config_file", "config.yml")
+        last_config_file = self.settings.value("last_config_file", os.path.join(os.path.abspath(__file__), "config.yml"))
         self.config_combo.setCurrentText(last_config_file)
 
         # Add the QComboBox to the dialog box
@@ -197,13 +199,12 @@ class LoadMessageBox(QDialog):
         sub_text2.setAlignment(Qt.AlignmentFlag.AlignTop)
         right_layout.addWidget(sub_text2)
 
-
         # Create a horizontal layout for buttons
         hbox = QHBoxLayout()
 
         # Add a QPushButton for "Configuration Wizard"
         config_wizard_button = QPushButton("Config. Wizard")
-        self.connection_manager.connect(config_wizard_button.clicked, self.reject)
+        self.connection_manager.connect(config_wizard_button.clicked, self.on_wizard_button_clicked)
         hbox.addWidget(config_wizard_button)
 
         # Add a spacer to create some space between the buttons and the Configuration Wizard button
@@ -212,13 +213,12 @@ class LoadMessageBox(QDialog):
 
         # Add a QPushButton for "OK"
         ok_button = QPushButton("OK")
-        ok_button.setDefault(True)
         self.connection_manager.connect(ok_button.clicked, self.accept)
         hbox.addWidget(ok_button)
 
         # Add a QPushButton for "Cancel"
         cancel_button = QPushButton("Cancel")
-        self.connection_manager.connect(cancel_button.clicked, self.cancel)
+        self.connection_manager.connect(cancel_button.clicked, self.reject)
         hbox.addWidget(cancel_button)
 
         # Add the horizontal layout to the vertical layout
@@ -231,8 +231,16 @@ class LoadMessageBox(QDialog):
         # Set the layout for the QDialog
         self.setLayout(top_layout)
 
-    def cancel(self):
-        sys.exit()
+        ok_button.setDefault(True)
+
+    def on_wizard_button_clicked(self):
+        self.custom_return_code = 42
+        self.accept()
+
+    def exec(self):
+        super().exec()
+        return self.custom_return_code
+
 
     def save_last_config(self, config_file):
         # Save the selected config file to QSettings

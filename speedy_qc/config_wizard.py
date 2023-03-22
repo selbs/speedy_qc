@@ -3,7 +3,10 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 import yaml
 import os
+import logging.config
 from qt_material import apply_stylesheet, get_theme
+
+from .utils import open_yml_file, setup_logging
 
 class ConfigurationWizard(QWizard):
     def __init__(self, config_path):
@@ -34,15 +37,15 @@ class ConfigurationWizard(QWizard):
         # Set the logo pixmap
         icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
         pixmap = QPixmap(icon_path)
-        self.setPixmap(QWizard.WizardPixmap.LogoPixmap, pixmap.scaled(240, 240, Qt.AspectRatioMode.KeepAspectRatio))
+        self.setPixmap(QWizard.WizardPixmap.LogoPixmap, pixmap.scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio))
 
         # Load the config file
-        with open(self.config_path, 'r') as f:
-            self.config_data = yaml.safe_load(f)
+        self.config_data = open_yml_file(self.config_path)
 
-        self.checkbox_labels = self.config_data.get('checkbox_labels', [])
+        self.checkboxes = self.config_data.get('checkboxes', [])
         self.max_backups = self.config_data.get('max_backups', 10)
-        self.backup_dir = self.config_data.get('backup_dir', '~/.speedy_qc_backups')
+        self.backup_dir = self.config_data.get('backup_dir', '~/speedy_qc/backups')
+        self.log_dir = self.config_data.get('log_dir', '~/speedy_qc/logs')
 
         # Create pages for the wizard
         self.label_page = self.create_label_page()
@@ -59,6 +62,9 @@ class ConfigurationWizard(QWizard):
 
         self.resize(700, 800)
 
+        next_button = self.button(QWizard.NextButton)
+        next_button.setDefault(True)
+
     def create_label_page(self):
         page = QWizardPage()
         page.setTitle("Checkbox Labels")
@@ -71,7 +77,7 @@ class ConfigurationWizard(QWizard):
         self.labels_widget = QWidget(page)
         self.labels_layout = QVBoxLayout(self.labels_widget)
 
-        for label in self.checkbox_labels:
+        for label in self.checkboxes:
             line_edit = QLineEdit(label)
             self.labels_layout.addWidget(line_edit)
 
@@ -85,28 +91,40 @@ class ConfigurationWizard(QWizard):
 
     def create_backup_page(self):
         page = QWizardPage()
-        page.setTitle("Backup Files")
-        page.setSubTitle("\nPlease choose where backups should be stored and maximum number of backup files...\n")
+        page.setTitle("Logging and Backup Files")
+        page.setSubTitle("\nPlease choose where logs and backups should be stored, and\n"
+                         "specify maximum number of backup files...\n")
 
         # Create a vertical layout for the page
         layout = QVBoxLayout(page)
 
-        # Create a widget for the maximum number of backups
+
         self.backup_widget = QWidget(page)
         self.backup_layout = QVBoxLayout(self.backup_widget)
 
+        # Create a widget for the log directory
+        log_dir_label = QLabel("Log Directory:")
+        self.log_dir_edit = QLineEdit()
+        self.log_dir_edit.setText(self.settings.value("log_dir", os.path.expanduser(self.log_dir)))
+        self.backup_layout.addWidget(log_dir_label)
+        self.backup_layout.addWidget(self.log_dir_edit)
+
+        spacer = QSpacerItem(0, 40, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.backup_layout.addItem(spacer)
+
+        backup_dir_label = QLabel("Backup Directory:")
+        self.backup_dir_edit = QLineEdit()
+        self.backup_dir_edit.setText(self.settings.value("backup_dir", os.path.expanduser(self.backup_dir)))
+        self.backup_layout.addWidget(backup_dir_label)
+        self.backup_layout.addWidget(self.backup_dir_edit)
+
+        # Create a widget for the maximum number of backups
         self.backup_spinbox = QSpinBox()
         self.backup_spinbox.setRange(1, 100)
         self.backup_spinbox.setValue(self.max_backups)
 
         self.backup_layout.addWidget(QLabel("Maximum Number of Backups:"))
         self.backup_layout.addWidget(self.backup_spinbox)
-
-        backup_dir_label = QLabel("Backup Directory:")
-        self.backup_dir_edit = QLineEdit()
-        self.backup_dir_edit.setText(self.settings.value("backup_dir", os.path.expanduser("~/.speedy_qc_backups")))
-        self.backup_layout.addWidget(backup_dir_label)
-        self.backup_layout.addWidget(self.backup_dir_edit)
 
         layout.addWidget(self.backup_widget)
 
@@ -146,6 +164,8 @@ class ConfigurationWizard(QWizard):
         save_dir_label = QLabel(os.path.dirname(os.path.abspath(__file__)))
         layout.addWidget(save_dir_label)
 
+
+
         return page
 
     def update_config_combobox_state(self):
@@ -182,11 +202,17 @@ class ConfigurationWizard(QWizard):
 
         self.config_data['checkboxes'] = new_checkbox_labels
         self.config_data['max_backups'] = self.backup_spinbox.value()
+        self.config_data['backup_dir'] = self.log_dir_edit.text()
+        self.config_data['log_dir'] = self.log_dir_edit.text()
 
         save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
         with open(save_path, 'w') as f:
             yaml.dump(self.config_data, f)
+
+        print("WIZARD LOG DIR:", self.config_data['log_dir'])
+        logger, console_msg = setup_logging(self.config_data['log_dir'])
+        logger.info(f"Configuration saved to {save_path}")
 
         QMessageBox.information(self, "Configuration Saved", "The configuration has been saved.")
 

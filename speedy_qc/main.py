@@ -43,15 +43,14 @@ def main():
         window = MainWindow(dicom_dir)
         window.show()
     elif result == load_msg_box.DialogCode.Rejected:
+        sys.exit()
+    else:
         # Use the selected config file from the QComboBox
         config_file = load_msg_box.config_combo.currentText()
-        # Save the selected config file to QSettings
         load_msg_box.save_last_config(config_file)
 
         wizard = ConfigurationWizard(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml'))
         wizard.show()
-    else:
-        sys.exit()
 
     sys.exit(app.exec())
 
