@@ -101,7 +101,7 @@ class Connection:
     """
     A class to manage a single connection between a signal and a slot in a Qt application.
     """
-    def __init__(self, signal: QtCore.Signal, slot: callable):
+    def __init__(self, signal: QtCore.pyqtSignal, slot: callable):
         self.signal = signal
         self.slot = slot
         self.connection = self.signal.connect(self.slot)
@@ -120,11 +120,11 @@ class ConnectionManager:
     def __init__(self):
         self.connections = {}
 
-    def connect(self, signal: QtCore.Signal, slot: callable):
+    def connect(self, signal: QtCore.pyqtSignal, slot: callable):
         """
         Connects a signal to a slot and stores the connection in a dictionary.
 
-        :param signal: QtCore.Signal, the signal to connect.
+        :param signal: QtCore.pyqtSignal, the signal to connect.
         :param slot: callable, the slot (function or method) to connect to the signal.
         """
         connection = Connection(signal, slot)

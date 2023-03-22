@@ -23,7 +23,8 @@ from PyQt6.QtCore import QTimer
 import datetime
 import json
 import math
-from typing import Optional, Dict, List, Tuple, Union
+from typing import Optional, Dict, List, Tuple
+import matplotlib.pyplot as plt
 
 from .custom_windows import AboutMessageBox
 from .utils import ConnectionManager, open_yml_file, setup_logging
@@ -32,33 +33,6 @@ settings = QSettings('SpeedyQC', 'DicomViewer')
 config_file = settings.value("last_config_file", os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yml"))
 config_data = open_yml_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
-
-# Set the default colors for the icons
-qta.set_defaults(
-    color=get_theme("dark_blue.xml")['primaryLightColor'],
-    color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
-    color_active=get_theme("dark_blue.xml")['primaryColor'],
-)
-
-# Set the icons dictionary used in the main window
-icons = {
-    'save': qta.icon("mdi.content-save-all"),
-    'next': qta.icon("mdi.arrow-right-circle"),
-    'prev': qta.icon("mdi.arrow-left-circle"),
-    'ww': qta.icon("mdi.arrow-expand-horizontal"),
-    'wc': qta.icon("mdi.format-horizontal-align-center"),
-    'inv': qta.icon("mdi.invert-colors"),
-    'rot_right': qta.icon("mdi.rotate-right"),
-    'rot_left': qta.icon("mdi.rotate-left"),
-    'zoom_in': qta.icon("mdi.magnify-plus"),
-    'zoom_out': qta.icon("mdi.magnify-minus"),
-    'exit': qta.icon("mdi.exit-to-app"),
-    'reset_win': qta.icon("mdi.credit-card-refresh"),
-    'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
-    'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
-    'question': qta.icon("mdi.help-circle", color="white", scale=2)
-}
-
 
 
 class CustomGraphicsView(QGraphicsView):
@@ -300,7 +274,6 @@ class MainWindow(QMainWindow):
         """
         super().__init__()
         # Initialize UI
-        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
         self.connection_manager = ConnectionManager()
         self.about_box = AboutMessageBox()
         self.setMouseTracking(True)
@@ -310,12 +283,37 @@ class MainWindow(QMainWindow):
         self.current_index = 0
         self.checkboxes = {}
         self.colors = {}
-        self.icons = icons
         self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
         self.dir_path = dir_path
 
         # Set the initial window size
         self.resize(1200, 900)
+
+        # Set the default colors for the icons
+        qta.set_defaults(
+            color=get_theme("dark_blue.xml")['primaryLightColor'],
+            color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
+            color_active=get_theme("dark_blue.xml")['primaryColor'],
+        )
+
+        # Set the icons dictionary used in the main window
+        self.icons = {
+            'save': qta.icon("mdi.content-save-all"),
+            'next': qta.icon("mdi.arrow-right-circle"),
+            'prev': qta.icon("mdi.arrow-left-circle"),
+            'ww': qta.icon("mdi.arrow-expand-horizontal"),
+            'wc': qta.icon("mdi.format-horizontal-align-center"),
+            'inv': qta.icon("mdi.invert-colors"),
+            'rot_right': qta.icon("mdi.rotate-right"),
+            'rot_left': qta.icon("mdi.rotate-left"),
+            'zoom_in': qta.icon("mdi.magnify-plus"),
+            'zoom_out': qta.icon("mdi.magnify-minus"),
+            'exit': qta.icon("mdi.exit-to-app"),
+            'reset_win': qta.icon("mdi.credit-card-refresh"),
+            'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
+            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
+            'question': qta.icon("mdi.help-circle", color="white", scale=2)
+        }
 
         # Set the window icon
         icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
@@ -351,6 +349,7 @@ class MainWindow(QMainWindow):
 
         # Now set up the main window layout and toolbars
         main_layout = QVBoxLayout()
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
         # Create the image scene and set as the central widget
         self.image_scene = QGraphicsScene(self)
@@ -1136,12 +1135,11 @@ class MainWindow(QMainWindow):
 
     def assign_colors_to_findings(self):
         """
-        Assigns a color to each finding/checkbox.
+        Assigns a color to each finding/checkbox using the matplotlib rainbow color map.
         """
-        colors = [
-            QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255),
-            QColor(255, 255, 0), QColor(0, 255, 255), QColor(255, 0, 255),
-        ]
+        num_colors = len(self.findings)
+        cmap = plt.get_cmap("gist_rainbow")
+        colors = [QColor(*(255 * np.array(cmap(i)[:3])).astype(int)) for i in np.linspace(0, 1, num_colors)]
 
         for idx, finding in enumerate(self.findings):
             color = colors[idx % len(colors)]
