@@ -1,14 +1,36 @@
+"""
+config_wizard.py
+
+This module provides a configuration wizard for the Speedy QC application, allowing users
+to customize various settings such as checkbox labels, maximum number of backup files,
+and directories for backup and log files. The wizard can be run from the initial dialog
+box of the application, from the command line, or from Python.
+
+Classes:
+    - ConfigurationWizard: A QWizard class implementation to guide users through the process of
+                           customizing the application configuration.
+"""
+
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 import yaml
 import os
-import logging.config
 from qt_material import apply_stylesheet, get_theme
 
 from .utils import open_yml_file, setup_logging
 
 class ConfigurationWizard(QWizard):
+    """
+    A QWizard implementation for customizing the configuration of the Speedy QC application.
+    Allows users to customize checkbox labels, maximum number of backup files, and directories
+    for backup and log files. Can be run from the initial dialog box, from the command line,
+    or from Python.
+
+    Attributes:
+        config_path (str): The path to the configuration file.
+        config_data (dict): The configuration data loaded from the file.
+    """
     def __init__(self, config_path):
         super().__init__()
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
@@ -25,7 +47,7 @@ class ConfigurationWizard(QWizard):
             }}
         """)
 
-        # Set the wizard style
+        # Set the wizard style to have the title and icon at the top
         self.setWizardStyle(QWizard.WizardStyle.ModernStyle)
 
         self.config_path = config_path
@@ -41,7 +63,6 @@ class ConfigurationWizard(QWizard):
 
         # Load the config file
         self.config_data = open_yml_file(self.config_path)
-
         self.checkboxes = self.config_data.get('checkboxes', [])
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_dir = self.config_data.get('backup_dir', '~/speedy_qc/backups')
@@ -57,15 +78,24 @@ class ConfigurationWizard(QWizard):
         self.addPage(self.backup_page)
         self.addPage(self.save_page)
 
+        # Set the window title and modality
         self.setWindowTitle("Speedy QC Configuration Wizard")
         self.setWindowModality(Qt.WindowModality.ApplicationModal)
 
+        # Set the size of the wizard to allow for list of checkboxes to fit nicely
         self.resize(700, 800)
 
+        # Set the default button to be the next / finish button
         next_button = self.button(QWizard.NextButton)
         next_button.setDefault(True)
 
     def create_label_page(self):
+        """
+        Creates the page for the wizard to customize the labels for the checkboxes.
+
+        Returns:
+            QWizardPage: The QWizardPage containing the UI elements for customizing checkbox labels.
+        """
         page = QWizardPage()
         page.setTitle("Checkbox Labels")
         page.setSubTitle("\nPlease name the checkboxes to label the images...\n")
@@ -90,6 +120,11 @@ class ConfigurationWizard(QWizard):
         return page
 
     def create_backup_page(self):
+        """
+        Creates the page for the wizard to customise the backup and log directories, and
+        the maximum number of backup files.
+        """
+
         page = QWizardPage()
         page.setTitle("Logging and Backup Files")
         page.setSubTitle("\nPlease choose where logs and backups should be stored, and\n"
@@ -131,10 +166,20 @@ class ConfigurationWizard(QWizard):
         return page
 
     def add_label(self):
+        """
+        Adds a new label to the list of labels to add additional checkboxes.
+        """
         line_edit = QLineEdit()
         self.labels_layout.addWidget(line_edit)
 
     def create_save_page(self):
+        """
+        Creates the page for the wizard to save the configuration file. Allows the user to
+        select/overwrite an existing configuration file or enter a new filename.
+
+        Returns:
+            QWizardPage: The QWizardPage containing the UI elements for saving the configuration file.
+        """
         page = QWizardPage()
         page.setTitle("Save Configuration")
         page.setSubTitle("\nPlease select an existing configuration file or enter a new filename...\n")
@@ -164,11 +209,12 @@ class ConfigurationWizard(QWizard):
         save_dir_label = QLabel(os.path.dirname(os.path.abspath(__file__)))
         layout.addWidget(save_dir_label)
 
-
-
         return page
 
     def update_config_combobox_state(self):
+        """
+        Updates the QComboBox on the save page with the list of existing .yml files.
+        """
         if self.filename_edit.text():
             self.config_files_combobox.setEnabled(False)
         else:
@@ -176,6 +222,10 @@ class ConfigurationWizard(QWizard):
         self.update_combobox_stylesheet()
 
     def update_combobox_stylesheet(self):
+        """
+        Updates the stylesheet of the QComboBox on the save page to indicate whether it is
+        enabled or disabled.
+        """
         if self.config_files_combobox.isEnabled():
             self.config_files_combobox.setStyleSheet(f"""QComboBox {{
                 color: {get_theme('dark_blue.xml')['primaryLightColor']};
@@ -184,6 +234,9 @@ class ConfigurationWizard(QWizard):
             self.config_files_combobox.setStyleSheet("QComboBox { color: gray; }")
 
     def accept(self):
+        """
+        Saves the configuration file and closes the wizard.
+        """
         # Get the filename from the QLineEdit or QComboBox
         filename = self.filename_edit.text()
         if not filename:
@@ -207,26 +260,30 @@ class ConfigurationWizard(QWizard):
 
         save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
 
+        # Save the config file
         with open(save_path, 'w') as f:
             yaml.dump(self.config_data, f)
 
-        print("WIZARD LOG DIR:", self.config_data['log_dir'])
+        # Makes a log of the new configuration
         logger, console_msg = setup_logging(self.config_data['log_dir'])
         logger.info(f"Configuration saved to {save_path}")
 
+        # Inform the user that the configuration has been saved
         QMessageBox.information(self, "Configuration Saved", "The configuration has been saved.")
 
         super().accept()
 
 
 if __name__ == '__main__':
-    app = QApplication([])
 
+    # Create the application and apply the qt material stylesheet
+    app = QApplication([])
     apply_stylesheet(app, theme='dark_blue.xml')
 
-    # Set the directory of the main.py file as the default save directory
+    # Set the directory of the main.py file as the default directory for the config files
     default_dir = os.path.dirname(os.path.abspath(__file__))
 
+    # Load the last config file used
     settings = QSettings('SpeedyQC', 'DicomViewer')
     config_file = settings.value('config_file', os.path.join(default_dir, 'config.yml'))
 

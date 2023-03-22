@@ -1,4 +1,15 @@
-import sys
+"""
+custom_windows.py
+
+This module contains custom QDialog classes used for displaying specific dialogs in the application.
+These dialogs include the initial dialog box for loading a configuration file and the 'About' dialog box
+that provides information about the application and its license.
+
+Classes:
+    - LoadMessageBox: A custom QDialog for selecting a configuration file when launching the application.
+    - AboutMessageBox: A custom QDialog for displaying information about the application and its license.
+"""
+
 import os
 import logging
 from PyQt6.QtCore import *
@@ -11,7 +22,15 @@ logger = logging.getLogger(__name__)
 console_msg = logging.getLogger('consoleLog')
 
 class AboutMessageBox(QDialog):
+    """
+    A custom QDialog for displaying information about the application from the About option in the menu.
+    """
     def __init__(self, parent=None):
+        """
+        Initialize the AboutMessageBox.
+
+        :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+        """
         super().__init__(parent)
         # self.connections = {}
         self.connection_manager = ConnectionManager()
@@ -25,28 +44,23 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
         left_layout.addWidget(icon_label)
 
-        web_text = QLabel("<a href='https://www.example.com'>www.example.com</a>")
-        web_text.setTextFormat(Qt.TextFormat.RichText)
-        web_text.setAlignment(Qt.AlignmentFlag.AlignRight)
-        web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
-        web_text.setOpenExternalLinks(True)
-
         right_layout = QVBoxLayout()
 
         text_layout = QVBoxLayout()
 
+        # Add the app title
         main_text = QLabel("Speedy QC for Desktop!")
         main_text.setStyleSheet("font-weight: bold; font-size: 16px;")
         main_text.setAlignment(Qt.AlignmentFlag.AlignBottom)
         text_layout.addWidget(main_text)
 
+        # Add the copyright information
         sub_text = QLabel("MIT License\nCopyright (c) 2023, Ian Selby")
         sub_text.setStyleSheet("font-size: 14px;")
         sub_text.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -57,7 +71,7 @@ class AboutMessageBox(QDialog):
         # Create a horizontal layout for buttons
         hbox = QHBoxLayout()
 
-        # Create a QPlainTextEdit for detailed information
+        # Create a QPlainTextEdit for the licence information
         self.detailed_info = QTextEdit()
         self.detailed_info.setReadOnly(True)
         self.detailed_info.setText(
@@ -104,6 +118,9 @@ class AboutMessageBox(QDialog):
         self.setLayout(top_layout)
 
     def toggle_details(self):
+        """
+        Toggle the visibility of the license information.
+        """
         if self.detailed_info.isVisible():
             self.detailed_info.hide()
             self.details_button.setText("Details...")
@@ -113,7 +130,17 @@ class AboutMessageBox(QDialog):
 
 
 class LoadMessageBox(QDialog):
+    """
+    The initial dialog box that appears when the application is launched. This dialog box allows
+    the user to select the config file to load into the application and allows them to launch the
+    configuration wizard to customise Speedy QC.
+    """
     def __init__(self, parent=None):
+        """
+        Initialize the LoadMessageBox.
+
+        :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+        """
         super().__init__(parent)
         # self.connections = {}
         self.connection_manager = ConnectionManager()
@@ -131,21 +158,26 @@ class LoadMessageBox(QDialog):
 
         # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
-        grey_logo = QPixmap(path)
+        logo = QPixmap(path)
 
-        if grey_logo.isNull():
+        # Logs a warning if the logo cannot be loaded
+        if logo.isNull():
             logger.warning(f"Failed to load logo at path: {path}")
 
+        # Create a QLabel to display the logo
         icon_label = QLabel()
-        icon_label.setPixmap(grey_logo)
+        icon_label.setPixmap(logo)
         left_layout.addWidget(icon_label)
 
+        # Create a QLabel to display the website link
         web_text = QLabel("<a href='https://www.example.com'>www.example.com</a>")
         web_text.setTextFormat(Qt.TextFormat.RichText)
         web_text.setAlignment(Qt.AlignmentFlag.AlignRight)
-        web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
+        # web_text.setText("<a href='https://www.example.com'>www.example.com</a>")
         web_text.setOpenExternalLinks(True)
         left_layout.addWidget(web_text)
+
+        # Create a QLabel to display the copyright information
         cr_text = QLabel("MIT License, Copyright (c) 2023, Ian Selby.")
         cr_text.setStyleSheet("font-size: 8px;")
         cr_text.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -155,6 +187,7 @@ class LoadMessageBox(QDialog):
 
         spacer = QSpacerItem(0, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
 
+        # Create a QLabel to display the title of the application
         main_text = QLabel("Welcome to Speedy QC for Desktop!")
         main_text.setStyleSheet("font-weight: bold; font-size: 16px;")
         main_text.setAlignment(Qt.AlignmentFlag.AlignBottom)
@@ -162,12 +195,10 @@ class LoadMessageBox(QDialog):
 
         right_layout.addItem(spacer)
 
-
         # Set up QSettings to remember the last config file used
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
 
         # Create a QComboBox for selecting the config file
-
         self.config_combo = QComboBox()
         script_dir = os.path.dirname(os.path.abspath(__file__))
         for file in os.listdir(script_dir):
@@ -189,11 +220,13 @@ class LoadMessageBox(QDialog):
         config_label2.setStyleSheet("font-size: 14px; font-style: italic;")
         config_layout.addWidget(config_label2)
 
-        # Connect the currentTextChanged signal of the QComboBox to a slot that saves the selected config file to QSettings
+        # Connect the currentTextChanged signal of the QComboBox to a slot
+        # that saves the selected config file to QSettings
         self.config_combo.currentTextChanged.connect(self.save_last_config)
 
         right_layout.addItem(spacer)
 
+        # Create a QLabel to display a prompt to the user for the following dialog
         sub_text2 = QLabel("In the next window, please select a directory to\nload the DICOM files...")
         sub_text2.setStyleSheet("font-size: 14px;")
         sub_text2.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -234,10 +267,16 @@ class LoadMessageBox(QDialog):
         ok_button.setDefault(True)
 
     def on_wizard_button_clicked(self):
+        """
+        Open the configuration wizard when the Configuration Wizard button is clicked.
+        """
         self.custom_return_code = 42
         self.accept()
 
     def exec(self):
+        """
+        Overwrite the exec method to return a custom return code for the configuration wizard.
+        """
         result = super().exec()
         try:
             return self.custom_return_code
@@ -249,5 +288,8 @@ class LoadMessageBox(QDialog):
 
 
     def save_last_config(self, config_file):
+        """
+        Save the selected config file to QSettings
+        """
         # Save the selected config file to QSettings
         self.settings.setValue("last_config_file", config_file)

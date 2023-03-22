@@ -1,3 +1,9 @@
+"""
+main_window.py
+
+This module contains the main window of the application.
+"""
+
 import os
 import pydicom
 import numpy as np
@@ -21,9 +27,43 @@ config_file = settings.value("last_config_file", os.path.join(os.path.dirname(os
 config_data = open_yml_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
+# Set the default colors for the icons
+qta.set_defaults(
+    color=get_theme("dark_blue.xml")['primaryLightColor'],
+    color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
+    color_active=get_theme("dark_blue.xml")['primaryColor'],
+)
+
+# Set the icons dictionary used in the main window
+icons = {
+    'save': qta.icon("mdi.content-save-all"),
+    'next': qta.icon("mdi.arrow-right-circle"),
+    'prev': qta.icon("mdi.arrow-left-circle"),
+    'ww': qta.icon("mdi.arrow-expand-horizontal"),
+    'wc': qta.icon("mdi.format-horizontal-align-center"),
+    'inv': qta.icon("mdi.invert-colors"),
+    'rot_right': qta.icon("mdi.rotate-right"),
+    'rot_left': qta.icon("mdi.rotate-left"),
+    'zoom_in': qta.icon("mdi.magnify-plus"),
+    'zoom_out': qta.icon("mdi.magnify-minus"),
+    'exit': qta.icon("mdi.exit-to-app"),
+    'reset_win': qta.icon("mdi.credit-card-refresh"),
+    'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
+    'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
+    'question': qta.icon("mdi.help-circle", color="white", scale=2)
+}
+
+
 
 class CustomGraphicsView(QGraphicsView):
+    """
+    Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes. This class is used to display
+    the DICOM images and is the central widget of the main window.
+    """
     def __init__(self, parent=None):
+        """
+        Initialize the custom graphics view.
+        """
         super().__init__()
         # self.connections = {}
         self.connection_manager = ConnectionManager()
@@ -43,22 +83,38 @@ class CustomGraphicsView(QGraphicsView):
         if isinstance(parent, MainWindow):
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
 
-    def zoom_in(self):
-        factor = 1.2
+    def zoom_in(self, factor=1.2):
+        """
+        Zoom in by a default factor of 1.2 (20%).
+
+        :param factor: float, the zoom factor.
+        """
         self.zoom *= factor
         self.scale(factor, factor)
 
-    def zoom_out(self):
-        factor = 0.8
+    def zoom_out(self, factor=0.8):
+        """
+        Zoom out by a default factor of 0.8 (20%).
+
+        :param factor: float, the zoom factor.
+        """
         self.zoom /= factor
         self.scale(factor, factor)
 
     def on_main_window_resized(self):
+        """
+        Resize the image and maintain the same zoom when the main window is resized.
+        """
         if self.scene() and self.scene().items():
             self.fitInView(self.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self.scale(self.zoom, self.zoom)
 
     def mousePressEvent(self, event):
+        """
+        Start drawing a bounding box when the left mouse button is pressed.
+
+        :param event: QMouseEvent, the mouse press event containing information about the button and position
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             if self.scene() and self.current_finding:
                 pos = self.mapToScene(event.position().toPoint())
@@ -72,6 +128,11 @@ class CustomGraphicsView(QGraphicsView):
         super().mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
+        """
+        Update the size of the bounding box as the mouse is moved.
+
+        :param event: QMouseEvent, the mouse move event containing information about the buttons and position
+        """
         if event.buttons() & Qt.MouseButton.LeftButton:
             if self.start_rect:
                 pos = self.mapToScene(event.position().toPoint())
@@ -81,22 +142,41 @@ class CustomGraphicsView(QGraphicsView):
         super().mouseMoveEvent(event)
 
     def mouseReleaseEvent(self, event):
+        """
+        Stop drawing the bounding box when the left mouse button is released.
+
+        :param event: QMouseEvent, the mouse release event containing information about the button and position
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             if self.start_rect:
                 self.start_rect = None
         super().mouseReleaseEvent(event)
 
     def set_current_finding(self, finding, color):
+        """
+        Set the current finding and color to be used when drawing bounding boxes.
+
+        :param finding: str, the name of the finding/checkbox
+        :param color: QColor, the color to be used when drawing the bounding box
+        """
         self.current_finding = finding
         self.current_color = color
 
     def remove_all_bounding_boxes(self):
+        """
+        Remove all bounding boxes from the scene.
+        """
         for finding, bboxes in self.rect_items.items():
             for bbox in bboxes:
                 self.scene().removeItem(bbox)
         self.rect_items.clear()
 
     def add_bboxes(self, rect_items):
+        """
+        Add previously drawn bounding boxes to the scene.
+
+        :param rect_items: dict, a dictionary of finding/checkbox names and their corresponding bounding boxes
+        """
         # Add previously drawn bounding boxes to the scene
         for finding, bboxes in rect_items.items():
             for bbox in bboxes:
@@ -107,7 +187,18 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[finding] = [bbox]
 
 class BoundingBoxItem(QGraphicsRectItem):
+    """
+    Custom graphics item to handle drawing bounding boxes on DICOM images.
+    This class inherits from QGraphicsRectItem and provides selectable, movable, and removable bounding boxes.
+    """
     def __init__(self, rect, color, parent=None):
+        """
+        Initializes a new BoundingBoxItem with the given rectangle, color, and optional parent item.
+
+        :param rect: QRectF, the rectangle defining the bounding box's geometry
+        :param color: QColor, the color of the bounding box's border
+        :param parent: QGraphicsItem, optional parent item (default: None)
+        """
         super().__init__(rect, parent)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
@@ -116,6 +207,11 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setPen(QPen(color, 5))
 
     def contextMenuEvent(self, event):
+        """
+        Show a context menu when the bounding box is right-clicked, allowing them to be removed.
+
+        :param event: QGraphicsSceneContextMenuEvent, the event that triggered the context menu.
+        """
         menu = QMenu()
         remove_action = menu.addAction("Remove")
         selected_action = menu.exec(event.screenPos())
@@ -124,86 +220,79 @@ class BoundingBoxItem(QGraphicsRectItem):
             self.scene().removeItem(self)
 
 class MainWindow(QMainWindow):
+    """
+    Main window for the application.
+    """
     resized = pyqtSignal()
 
     def __init__(self, dir_path):
+        """
+        Initialize the main window.
+        :param dir_path: str, the path to the directory containing the DICOM files.
+        """
         super().__init__()
+        # Initialize UI
+        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
         self.connection_manager = ConnectionManager()
-        # Set the initial window size
-        self.resize(1200, 900)
-        self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
-        self.current_index = 0
+        self.about_box = AboutMessageBox()
         self.setMouseTracking(True)
         self.setAttribute(Qt.WidgetAttribute.WA_AcceptTouchEvents, True)
-        self.colors = {}
-        self.about_box = AboutMessageBox()
 
+        # Initialize variables
+        self.current_index = 0
+        self.checkboxes = {}
+        self.colors = {}
+        self.icons = icons
+        self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
+        self.dir_path = dir_path
+
+        # Set the initial window size
+        self.resize(1200, 900)
+
+        # Set the window icon
         icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
+        # Set the central widget to the image viewer
         self.image_view = CustomGraphicsView(self)
         self.image_view.resize(self.size())
 
-        qta.set_defaults(
-            color=get_theme("dark_blue.xml")['primaryLightColor'],
-            color_disabled=get_theme("dark_blue.xml")['secondaryDarkColor'],
-            color_active=get_theme("dark_blue.xml")['primaryColor'],
-        )
-
-        # Icons
-        self.icons = {
-            'save': qta.icon("mdi.content-save-all"),
-            'next': qta.icon("mdi.arrow-right-circle"),
-            'prev': qta.icon("mdi.arrow-left-circle"),
-            'ww': qta.icon("mdi.arrow-expand-horizontal"),
-            'wc': qta.icon("mdi.format-horizontal-align-center"),
-            'inv': qta.icon("mdi.invert-colors"),
-            'rot_right': qta.icon("mdi.rotate-right"),
-            'rot_left': qta.icon("mdi.rotate-left"),
-            'zoom_in': qta.icon("mdi.magnify-plus"),
-            'zoom_out': qta.icon("mdi.magnify-minus"),
-            'exit': qta.icon("mdi.exit-to-app"),
-            'reset_win': qta.icon("mdi.credit-card-refresh"),
-            'viewed': qta.icon("mdi.checkbox-marked-circle", color="green", scale=2),
-            'not_viewed': qta.icon("mdi.close-circle", color="red", scale=2),
-            'question': qta.icon("mdi.help-circle", color="white", scale=2)
-        }
-
-        self.dir_path = dir_path
+        # Load the DICOM file list
         self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
+
+        # Load the configuration file
         config = self.open_findings_yml()
         self.findings = config['checkboxes']
         self.max_backups = config['max_backups']
         self.backup_dir = config['backup_dir']
 
+        # Initialize dictionaries for outputs
         self.viewed_values = {f: False for f in self.file_list}
+        self.rotation = {f: 0 for f in self.file_list}
         self.notes = {f: "" for f in self.file_list}
         self.checkbox_values = {f: {finding: False for finding in self.findings} for f in self.file_list}
-        self.checkboxes = {}
-        self.assign_colors_to_findings()
         self.bboxes = {f: {} for f in self.file_list}
-        self.rotation = {f: 0 for f in self.file_list}
-        self.original_center = None
+
+        # Assign colors to findings
+        self.assign_colors_to_findings()
 
         # Load the checkbox values from json file
         self.loaded_file, self.loaded = self.load_from_json()
         if self.loaded:
             self.restore_from_saved_state()
-        # Load the current DICOM file
-        self.load_file()
 
+        # Now set up the main window layout and toolbars
         main_layout = QVBoxLayout()
 
+        # Create the image scene and set as the central widget
         self.image_scene = QGraphicsScene(self)
-        # Create a QGraphicsPixmapItem to hold the image
         self.pixmap_item = QGraphicsPixmapItem()
+        self.load_file()
         self.image_scene.addItem(self.pixmap_item)
         self.image_view.setScene(self.image_scene)
-
         main_layout.addWidget(self.image_view)
-        self.apply_stored_rotation()
+        self.apply_stored_rotation()    # Apply any rotation previously applied to the image
         self.load_image()
-
         central_widget = QWidget(self)
         central_widget.setLayout(main_layout)
         self.setCentralWidget(central_widget)
@@ -216,15 +305,15 @@ class MainWindow(QMainWindow):
         self.file_tool_bar.addAction(self.saveAction)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.file_tool_bar)
 
+        # Create the checkbox toolbar
         self.checkbox_toolbar = QToolBar(self)
         self.create_checkboxes()
-        self.set_checkbox_toolbar(self.checkboxes)
-
-        textbox = QTextEdit()
-        textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        self.connection_manager.connect(textbox.textChanged, self.on_text_changed)
+        self.set_checkbox_toolbar()
+        # Add the textbox for notes
+        self.textbox = QTextEdit()
+        self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         text_action = QWidgetAction(self)
-        text_action.setDefaultWidget(textbox)
+        text_action.setDefaultWidget(self.textbox)
         self.textbox_label = QLabel(self)
         self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.textbox_label.setObjectName("Notes")
@@ -232,27 +321,22 @@ class MainWindow(QMainWindow):
         self.checkbox_toolbar.addWidget(self.textbox_label)
         self.checkbox_toolbar.addAction(text_action)
 
-        # Create the image toolbar
+        # Create the image toolbar for image manipulation
         self.image_toolbar = QToolBar(self)
         self.invert_action = QAction(self.icons['inv'], "Invert Grayscale", self)
-        self.connection_manager.connect(self.invert_action.triggered, self.invert_grayscale)
         self.image_toolbar.addAction(self.invert_action)
         self.rotate_left_action = QAction(self.icons['rot_left'], "Rotate 90° Left", self)
-        self.connection_manager.connect(self.rotate_left_action.triggered, self.rotate_image_left)
         self.image_toolbar.addAction(self.rotate_left_action)
         self.rotate_right_action = QAction(self.icons['rot_right'], "Rotate 90° Right", self)
-        self.connection_manager.connect(self.rotate_right_action.triggered, self.rotate_image_right)
         self.image_toolbar.addAction(self.rotate_right_action)
 
         # Create zoom buttons
         self.zoom_in_action = QAction(self.icons['zoom_in'], "Zoom In", self)
         self.zoom_out_action = QAction(self.icons['zoom_out'], "Zoom Out", self)
-        self.connection_manager.connect(self.zoom_in_action.triggered, self.image_view.zoom_in)
-        self.connection_manager.connect(self.zoom_out_action.triggered, self.image_view.zoom_out)
         self.image_toolbar.addAction(self.zoom_in_action)
         self.image_toolbar.addAction(self.zoom_out_action)
 
-        # Create sliders for window center
+        # Create sliders for windowing
         self.window_center_label = QAction(self.icons['wc'], "Window Center", self)
         self.window_width_label = QAction(self.icons['ww'], "Window Width", self)
         self.window_center_slider = QSlider(Qt.Orientation.Horizontal)
@@ -262,6 +346,7 @@ class MainWindow(QMainWindow):
         self.window_width_slider.setRange(1, 450)
         self.window_width_slider.setValue(255)
 
+        # Create a space between the windowing sliders and the next button
         spacer = QSpacerItem(16, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Minimum)
         spacer_layout = QHBoxLayout()
         spacer_widget = QWidget()
@@ -269,21 +354,20 @@ class MainWindow(QMainWindow):
         spacer_widget.setLayout(spacer_layout)
         spacer_widget.layout().addItem(spacer)
 
-        # Connect the nav buttons to their functions and to reset the windowing parameters
+        # Create a reset window button and label the window sliders
         self.image_toolbar.addSeparator()
         self.reset_window_action = QAction(self.icons['reset_win'], "Reset Windowing", self)
-        self.connection_manager.connect(self.reset_window_action.triggered, self.reset_window_sliders)
         self.image_toolbar.addAction(self.reset_window_action)
-
         self.image_toolbar.addAction(self.window_center_label)
         self.image_toolbar.addWidget(self.window_center_slider)
         self.image_toolbar.addAction(self.window_width_label)
         self.image_toolbar.addWidget(self.window_width_slider)
         self.image_toolbar.addWidget(spacer_widget)
 
+        # Add the image toolbar to the top of the main window
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.image_toolbar)
 
-        # Add buttons to navigate to previous and next image
+        # Add buttons to the navigator toolbar to navigate to previous and next image
         self.nav_toolbar = QToolBar(self)
         self.prevAction = QAction(self.icons['prev'], "&Back", self)
         self.nextAction = QAction(self.icons['next'], "&Next", self)
@@ -291,7 +375,42 @@ class MainWindow(QMainWindow):
         self.nav_toolbar.addAction(self.nextAction)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.nav_toolbar)
 
-        # Connections between buttons / sliders and their functions
+        # Initiate connections between buttons / sliders and their functions
+        self.init_connections()
+
+        # Initiate window menus
+        self.init_menus()
+
+        # Backup progress... just in case...
+        self.backup_files = None
+        self.timer = QTimer()
+        self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
+        self.connection_manager.connect(self.timer.timeout, self.backup_file)
+        self.timer.start()
+
+        # Add and rotate the bounding boxes as necessary to match the rotation of the first image
+        self.prep_first_image()
+
+    def prep_first_image(self):
+        """
+        Add and rotate the bounding boxes as necessary to match the rotation of the first image
+        """
+        self.rotate_bounding_boxes(
+            self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
+        )
+        self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
+
+    def init_connections(self):
+        """
+        Initiate connections between buttons / sliders and their functions
+        """
+        self.connection_manager.connect(self.textbox.textChanged, self.on_text_changed)
+        self.connection_manager.connect(self.invert_action.triggered, self.invert_grayscale)
+        self.connection_manager.connect(self.rotate_left_action.triggered, self.rotate_image_left)
+        self.connection_manager.connect(self.rotate_right_action.triggered, self.rotate_image_right)
+        self.connection_manager.connect(self.zoom_in_action.triggered, self.image_view.zoom_in)
+        self.connection_manager.connect(self.zoom_out_action.triggered, self.image_view.zoom_out)
+        self.connection_manager.connect(self.reset_window_action.triggered, self.reset_window_sliders)
         self.connection_manager.connect(self.window_center_slider.valueChanged, self.update_image)
         self.connection_manager.connect(self.window_width_slider.valueChanged, self.update_image)
         self.connection_manager.connect(self.nextAction.triggered, self.reset_window_sliders)
@@ -301,24 +420,10 @@ class MainWindow(QMainWindow):
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
 
-        self.init_menus()
-
-        # Backup progress just in case...
-        self.backup_files = None
-        self.timer = QTimer()
-        self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
-        self.connection_manager.connect(self.timer.timeout, self.backup_file)
-        self.timer.start()
-
-        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
-
-        self.rotate_bounding_boxes(
-            self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
-        )
-        self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
-
-
     def backup_file(self):
+        """
+        Backs up the current file to a backup folder when triggered by the timer.
+        """
 
         backup_folder_path = self.backup_dir
         # Create the backup folder if it doesn't exist
@@ -335,7 +440,7 @@ class MainWindow(QMainWindow):
 
         # Get a list of existing backup files
         backup_files = sorted(
-            [f for f in os.path.listdir(backup_folder_path)])
+            [f for f in os.listdir(backup_folder_path)])
 
         # If the number of backup files exceeds the maximum, delete the oldest one
         if len(backup_files) >= self.max_backups:
@@ -351,6 +456,13 @@ class MainWindow(QMainWindow):
         return backup_files
 
     def wheelEvent(self, event: QWheelEvent):
+        """
+        Override the wheelEvent function to allow for scrolling with the mouse wheel to change the windowing parameters.
+        - Ctrl/Cmd + Scroll: Change window width
+        - Shift + Scroll: Change window center
+
+        :param event: QWheelEvent
+        """
         if event.modifiers() == Qt.KeyboardModifier.ControlModifier:  # check if Ctrl key is pressed
             delta = event.angleDelta().y()  # get the scroll direction
             if delta > 0:
@@ -371,16 +483,26 @@ class MainWindow(QMainWindow):
             super().wheelEvent(event)
 
     def open_findings_yml(self):
+        """
+        Opens the config .yml file and returns the data, including the list of findings/checkboxes,
+        the maximum number of backups, the backup directory and the log directory.
+        """
         last_config_file = settings.value("last_config_file", "config.yml")
         cbox_file = os.path.join(os.path.dirname(__file__), last_config_file)
         return open_yml_file(cbox_file)
 
     def on_text_changed(self):
+        """
+        Updates the notes dictionary when the text in the notes textbox is changed.
+        """
         textbox = self.sender()
         text_entered = textbox.toPlainText().replace("\n", " ").replace(",", ";")
         self.notes[self.file_list[self.current_index]] = text_entered
 
     def invert_grayscale(self):
+        """
+        Inverts the grayscale image.
+        """
         if self.image is not None:
             # Invert the image
             inverted_image = 255 - self.image
@@ -394,6 +516,9 @@ class MainWindow(QMainWindow):
             self.image = inverted_image
 
     def rotate_image_right(self):
+        """
+        Rotates the image 90 degrees to the right.
+        """
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
         # Rotate the image by 90 degrees and update the display
         rotated_image = np.rot90(self.image, k=-1)
@@ -404,6 +529,9 @@ class MainWindow(QMainWindow):
         self.rotate_bounding_boxes(self.file_list[self.current_index], -90)
 
     def rotate_image_left(self):
+        """
+        Rotates the image 90 degrees to the left.
+        """
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
         # Rotate the image by 90 degrees and update the display
         rotated_image = np.rot90(self.image, k=1)
@@ -414,10 +542,20 @@ class MainWindow(QMainWindow):
         self.rotate_bounding_boxes(self.file_list[self.current_index], 90)
 
     def apply_stored_rotation(self):
+        """
+        Applies the stored rotation to the image from previous settings.
+        """
         rotation_angle = self.rotation.get(self.file_list[self.current_index], 0)
         self.image = np.rot90(self.image, k=rotation_angle // 90)
 
     def rotate_bounding_boxes(self, filename, rotation_angle, reverse=False):
+        """
+        Rotates the bounding boxes around the center of the image to match the image rotation.
+
+        :param filename: str, the name of the image file.
+        :param rotation_angle: int, the angle to rotate the bounding boxes by.
+        :param reverse: bool, if True, the rotation is reversed, default is False.
+        """
         if not reverse:
             rotation_angle = -rotation_angle
 
@@ -454,10 +592,18 @@ class MainWindow(QMainWindow):
                     bbox.setRect(rect)
 
     def resizeEvent(self, event):
+        """
+        Emits a signal to update the image size and zoom when the window is resized.
+
+        :param event: QResizeEvent, the resize event containing the old and new sizes of the widget
+        """
         super().resizeEvent(event)
         self.resized.emit()
 
     def load_file(self):
+        """
+        Loads the DICOM file and applies the look-up tables.
+        """
         file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
 
         try:
@@ -481,14 +627,18 @@ class MainWindow(QMainWindow):
             logger.exception(f"Failed to load file: {file_path} - Message: {str(e)}")
 
     def load_image(self):
+        """
+        Loads the image into the image view.
+        """
         # Load the image
         qimage = array2qimage(self.image)
         self.pixmap = QPixmap.fromImage(qimage)
         self.pixmap_item.setPixmap(self.pixmap)
-        self.original_center = QPointF(self.pixmap.width() / 2, self.pixmap.height() / 2)
-
 
     def update_image(self):
+        """
+        Updates the image in the image view with new windowing settings.
+        """
         window_center = self.window_center_slider.value()
         window_width = self.window_width_slider.value()
 
@@ -504,6 +654,9 @@ class MainWindow(QMainWindow):
         self.pixmap_item.setPixmap(self.pixmap)
 
     def create_checkboxes(self):
+        """
+        Creates the checkboxes for the findings.
+        """
         filename = self.file_list[self.current_index]
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
@@ -518,7 +671,10 @@ class MainWindow(QMainWindow):
             self.checkboxes[cbox].setChecked(bool(self.checkbox_values.get(filename, False).get(cbox, False)))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
 
-    def set_checkbox_toolbar(self, checkboxes):
+    def set_checkbox_toolbar(self):
+        """
+        Sets the checkbox toolbar.
+        """
         spacer_item = QSpacerItem(0, 5, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         spacer_widget = QWidget()
         spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
@@ -567,6 +723,9 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.checkbox_toolbar)
 
     def restore_from_saved_state(self):
+        """
+        Restores the state of the application from the saved state.
+        """
         # Check for saved settings and restore last viewed file
         if settings.contains('last_file') and settings.contains('last_index'):
             last_file = settings.value('last_file')
@@ -582,11 +741,29 @@ class MainWindow(QMainWindow):
             self.file_list = unviewed_files + viewed_files
 
     def reset_window_sliders(self):
+        """
+        Resets the window sliders to the default values.
+        """
         self.window_center_slider.setValue(127)
         self.window_width_slider.setValue(255)
 
-    def previous_image(self):
-        self.viewed_values[self.file_list[self.current_index]] = True
+    def change_image(self, direction, prev_failed=False):
+        """
+        Changes the current image in the file list based on the given direction.
+
+        :param direction: str, either "previous" or "next"
+        :param prev_failed: bool, only applicable if direction is "next"
+        """
+        if direction not in ("previous", "next"):
+            raise ValueError("Invalid direction value. Expected 'previous' or 'next'.")
+
+        if direction == "previous":
+            self.viewed_values[self.file_list[self.current_index]] = True
+        elif not prev_failed:
+            self.viewed_values[self.file_list[self.current_index]] = True
+        else:
+            self.viewed_values[self.file_list[self.current_index]] = "FAILED"
+
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
         self.rotate_bounding_boxes(
             self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]],
@@ -597,10 +774,25 @@ class MainWindow(QMainWindow):
         # Save current file and index
         self.save_settings()
 
-        # Load previous file
-        self.current_index -= 1
-        if self.current_index < 0:
-            self.current_index = len(self.file_list) - 1
+        if direction == "previous":
+            self.current_index -= 1
+            if self.current_index < 0:
+                self.current_index = len(self.file_list) - 1
+        else:
+            # Find the index of the next unviewed file
+            next_unviewed_index = (self.current_index + 1) % len(self.file_list)
+            while next_unviewed_index != self.current_index and self.viewed_values[self.file_list[next_unviewed_index]]:
+                next_unviewed_index = (next_unviewed_index + 1) % len(self.file_list)
+
+            if next_unviewed_index == self.current_index:
+                # All images have been viewed
+                QMessageBox.information(self, "All Images Viewed", "You have viewed all the images.")
+                self.current_index += 1
+                if self.current_index >= len(self.file_list):
+                    self.current_index = 0
+            else:
+                self.current_index = next_unviewed_index
+
         self.load_file()
         self.apply_stored_rotation()
         self.load_image()
@@ -609,87 +801,49 @@ class MainWindow(QMainWindow):
         self.window_center_slider.setValue(127)
         self.window_width_slider.setValue(255)
 
-        # Update the image
         self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
         self.image_view.zoom = 1
-        self.image_view.fitInView(self.image_view.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        self.image_view.fitInView(self.image_view.scene().items()[-1].boundingRect(),
+                                  Qt.AspectRatioMode.KeepAspectRatio)
 
         self.rotate_bounding_boxes(
             self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
         )
         self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
 
-        # Set the checkbox value for the current file
         self.set_checkbox_value()
 
-        # viewed_icon = self.findChild(QAction, "viewed_icon")
         self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
         self.viewed_icon.setPixmap(
             QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
                     else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
         )
+
+    def previous_image(self):
+        """
+        Loads the previous image in the file list.
+        """
+        self.change_image("previous")
 
     def next_image(self, prev_failed=False):
-        if not prev_failed:
-            self.viewed_values[self.file_list[self.current_index]] = True
-            self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
-            self.rotate_bounding_boxes(
-                self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]],
-                reverse=True
-            )
-            self.image_view.remove_all_bounding_boxes()
-        else:
-            self.viewed_values[self.file_list[self.current_index]] = "FAILED"
+        """
+        Loads the next image in the file list.
 
-        # Save current file and index
-        self.save_settings()
-        # Find the index of the next unviewed file
-        next_unviewed_index = (self.current_index + 1) % len(self.file_list)
-        while next_unviewed_index != self.current_index and self.viewed_values[self.file_list[next_unviewed_index]]:
-            next_unviewed_index = (next_unviewed_index + 1) % len(self.file_list)
-
-        self.window_center_slider.setValue(127)
-        self.window_width_slider.setValue(255)
-
-        if next_unviewed_index == self.current_index:
-            # All images have been viewed
-            QMessageBox.information(self, "All Images Viewed", "You have viewed all the images.")
-            self.current_index += 1
-            if self.current_index >= len(self.file_list):
-                self.current_index = 0
-            self.load_file()
-        else:
-            self.current_index = next_unviewed_index
-            self.load_file()
-
-        self.apply_stored_rotation()
-        self.load_image()
-        self.update_image()
-
-        # Update the image display
-        self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
-        self.image_view.fitInView(self.image_view.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-        self.image_view.zoom = 1
-
-        self.rotate_bounding_boxes(
-            self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
-        )
-        self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
-
-        # Set the checkbox value for the current file
-        self.set_checkbox_value()
-
-        self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
-        self.viewed_icon.setPixmap(
-            QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
-                    else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
-        )
+        :param prev_failed: bool, whether the image previously failed to load
+        """
+        self.change_image("next", prev_failed)
 
     def is_image_viewed(self):
+        """
+        Checks if the current image has been viewed previously.
+        """
         filename = self.file_list[self.current_index]
         return self.viewed_values.get(filename, False)
 
     def set_checkbox_value(self):
+        """
+        Sets the checkbox value for the current file.
+        """
         # Get the checkbox widget for the current file
         filename = self.file_list[self.current_index]
         for cbox in self.findings:
@@ -698,6 +852,11 @@ class MainWindow(QMainWindow):
             self.checkboxes[cbox].setChecked(checkbox_value)
 
     def keyPressEvent(self, event):
+        """
+        Handles key presses as shortcuts.
+
+        :param event: QKeyEvent, the key press event
+        """
         # Set up shortcuts
         # if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
         if event.key() == Qt.Key.Key_B:
@@ -723,6 +882,9 @@ class MainWindow(QMainWindow):
             super().keyPressEvent(event)
 
     def save_settings(self):
+        """
+        Saves the current settings to the QSettings.
+        """
         # Save current file and index
         settings.setValue('last_file', self.file_list[self.current_index])
         settings.setValue('last_index', self.current_index)
@@ -731,6 +893,9 @@ class MainWindow(QMainWindow):
         settings.setValue("default_directory", self.default_directory)
 
     def save_to_json(self):
+        """
+        Saves the current outputs to a JSON file, by directing to the save or save as method as appropriate.
+        """
         if not self.loaded:
             saved = self.save_as()
             if not saved:
@@ -739,6 +904,9 @@ class MainWindow(QMainWindow):
             self.save_json(self.loaded_file)
 
     def save_as(self):
+        """
+        Save as dialog.
+        """
         # file_dialog.setOption(QFileDialog.Option.DontUseNativeDialog)
         file_dialog = QFileDialog(self, 'Save to JSON', self.default_directory,
                                   'JSON Files (*.json)')
@@ -755,6 +923,11 @@ class MainWindow(QMainWindow):
             return False
 
     def save_json(self, selected_file):
+        """
+        Saves the current outputs to a JSON file.
+
+        :param selected_file: str, the path to the file to save to
+        """
         # Update bboxes for current file
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items
 
@@ -795,6 +968,9 @@ class MainWindow(QMainWindow):
 
 
     def load_from_json(self):
+        """
+        Loads the previous outputs from a JSON file.
+        """
         msg_box = QMessageBox()
         msg_box.setText("Do you want to load previous progress or create a new output file?")
         icon_label = QLabel()
@@ -851,8 +1027,15 @@ class MainWindow(QMainWindow):
         elif clicked_button == cancel_button:
             QApplication.quit()
 
-
     def load_bounding_box(self, file, finding, raw_rect):
+        """
+        Loads a bounding box object from the x, y, height, width stored in the JSON file and adds it to the appropriate
+        bboxes dictionary entry.
+
+        :param file: str, the file path of the image associated with the bounding box
+        :param finding: str, the finding type associated with the bounding box
+        :param raw_rect: tuple of (float, float, float, float), the (x, y, width, height) values of the bounding box
+        """
         bbx, bby, bbw, bbh = raw_rect
         color = self.colors[finding]
         bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color)
@@ -861,8 +1044,13 @@ class MainWindow(QMainWindow):
         else:
             self.bboxes[file][finding] = [bbox_item]
 
-
     def on_checkbox_changed(self, state):
+        """
+        Updates the checkbox values when a checkbox is changed, updates the cursor mode, and sets the current finding
+        in the image view based on the checkbox state.
+
+        :param state: int, the state of the checkbox (Qt.CheckState.Unchecked or Qt.CheckState.Checked)
+        """
         filename = self.file_list[self.current_index]
         cbox = self.sender().text()
         self.checkbox_values[filename][cbox] = bool(state)
@@ -880,6 +1068,9 @@ class MainWindow(QMainWindow):
             self.image_view.set_current_finding(None, None)
 
     def assign_colors_to_findings(self):
+        """
+        Assigns a color to each finding/checkbox.
+        """
         colors = [
             QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255),
             QColor(255, 255, 0), QColor(0, 255, 255), QColor(255, 0, 255),
@@ -890,6 +1081,11 @@ class MainWindow(QMainWindow):
             self.colors[finding] = color
 
     def closeEvent(self, event):
+        """
+        Handles the close event.
+
+        :param event: QCloseEvent, the close event
+        """
         # Ask the user if they want to save before closing
 
         close_msg_box = QMessageBox()
@@ -918,6 +1114,9 @@ class MainWindow(QMainWindow):
         event.accept()
 
     def init_menus(self):
+        """
+        Initializes the menus.
+        """
         # create the file menu
         file_menu = QMenu("&File", self)
         menu_save_action = QAction("&Save", self)
@@ -947,9 +1146,15 @@ class MainWindow(QMainWindow):
         self.connection_manager.connect(about_action.triggered, self.show_about)
 
     def show_about(self):
+        """
+        Shows the about box.
+        """
         self.about_box.exec()
 
     def quit_app(self):
+        """
+        Quits the application, disconnecting all signals.
+        """
         self.timer.stop()
         self.connection_manager.disconnect_all()
         self.about_box.connection_manager.disconnect_all()
