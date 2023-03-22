@@ -41,7 +41,7 @@ class ConfigurationWizard(QWizard):
         - update_combobox_state: Updates the QComboBox on the save page with the list of existing .yml files.
         - accept: Saves the configuration to a .yml file and closes the wizard.
     """
-    def __init__(self, config_path):
+    def __init__(self, config_path: str):
         super().__init__()
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
 

@@ -30,7 +30,7 @@ from .config_wizard import ConfigurationWizard
 from .custom_windows import LoadMessageBox
 
 
-def load_dicom_dialog():
+def load_dicom_dialog() -> str:
     """
     Prompts the user to select a directory of DICOM files. The function continues to prompt the user until
     a valid directory containing DICOM files is selected or the user cancels the operation.

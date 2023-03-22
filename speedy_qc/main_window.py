@@ -23,6 +23,7 @@ from PyQt6.QtCore import QTimer
 import datetime
 import json
 import math
+from typing import Optional, Dict, List, Tuple, Union
 
 from .custom_windows import AboutMessageBox
 from .utils import ConnectionManager, open_yml_file, setup_logging
@@ -79,7 +80,7 @@ class CustomGraphicsView(QGraphicsView):
         - remove_all_bounding_boxes (self): Remove all bounding boxes from the scene.
         - add_bboxes (self, rect_items: dict): Add previously drawn bounding boxes to the scene.
     """
-    def __init__(self, parent=None):
+    def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the custom graphics view.
         """
@@ -102,7 +103,7 @@ class CustomGraphicsView(QGraphicsView):
         if isinstance(parent, MainWindow):
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
 
-    def zoom_in(self, factor=1.2):
+    def zoom_in(self, factor: int = 1.2):
         """
         Zoom in by a default factor of 1.2 (20%).
 
@@ -111,7 +112,7 @@ class CustomGraphicsView(QGraphicsView):
         self.zoom *= factor
         self.scale(factor, factor)
 
-    def zoom_out(self, factor=0.8):
+    def zoom_out(self, factor: int = 0.8):
         """
         Zoom out by a default factor of 0.8 (20%).
 
@@ -128,7 +129,7 @@ class CustomGraphicsView(QGraphicsView):
             self.fitInView(self.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
             self.scale(self.zoom, self.zoom)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent):
         """
         Start drawing a bounding box when the left mouse button is pressed.
 
@@ -146,7 +147,7 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[self.current_finding] = [self.start_rect]
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent):
         """
         Update the size of the bounding box as the mouse is moved.
 
@@ -160,7 +161,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.start_rect.setRect(QRectF(self.start_rect.rect().x(), self.start_rect.rect().y(), width, height))
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent):
         """
         Stop drawing the bounding box when the left mouse button is released.
 
@@ -171,7 +172,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.start_rect = None
         super().mouseReleaseEvent(event)
 
-    def set_current_finding(self, finding, color):
+    def set_current_finding(self, finding: str, color: QColor):
         """
         Set the current finding and color to be used when drawing bounding boxes.
 
@@ -190,7 +191,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.scene().removeItem(bbox)
         self.rect_items.clear()
 
-    def add_bboxes(self, rect_items):
+    def add_bboxes(self, rect_items: Dict[str, List]):
         """
         Add previously drawn bounding boxes to the scene.
 
@@ -228,7 +229,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setAcceptHoverEvents(True)
         self.setPen(QPen(color, 5))
 
-    def contextMenuEvent(self, event):
+    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         """
         Show a context menu when the bounding box is right-clicked, allowing them to be removed.
 
@@ -291,7 +292,7 @@ class MainWindow(QMainWindow):
     """
     resized = pyqtSignal()
 
-    def __init__(self, dir_path):
+    def __init__(self, dir_path: str):
         """
         Initialize the main window.
 
@@ -487,7 +488,7 @@ class MainWindow(QMainWindow):
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
 
-    def backup_file(self):
+    def backup_file(self) -> List[str]:
         """
         Backs up the current file to a backup folder when triggered by the timer.
         """
@@ -549,7 +550,7 @@ class MainWindow(QMainWindow):
         else:
             super().wheelEvent(event)
 
-    def open_findings_yml(self):
+    def open_findings_yml(self) -> Dict:
         """
         Opens the config .yml file and returns the data, including the list of findings/checkboxes,
         the maximum number of backups, the backup directory and the log directory.
@@ -615,7 +616,7 @@ class MainWindow(QMainWindow):
         rotation_angle = self.rotation.get(self.file_list[self.current_index], 0)
         self.image = np.rot90(self.image, k=rotation_angle // 90)
 
-    def rotate_bounding_boxes(self, filename, rotation_angle, reverse=False):
+    def rotate_bounding_boxes(self, filename: str, rotation_angle: int, reverse: bool = False):
         """
         Rotates the bounding boxes around the center of the image to match the image rotation.
 
@@ -658,7 +659,7 @@ class MainWindow(QMainWindow):
                     # Update the bounding box rect
                     bbox.setRect(rect)
 
-    def resizeEvent(self, event):
+    def resizeEvent(self, event: QResizeEvent):
         """
         Emits a signal to update the image size and zoom when the window is resized.
 
@@ -900,7 +901,7 @@ class MainWindow(QMainWindow):
         """
         self.change_image("next", prev_failed)
 
-    def is_image_viewed(self):
+    def is_image_viewed(self) -> bool:
         """
         Checks if the current image has been viewed previously.
         """
@@ -918,7 +919,7 @@ class MainWindow(QMainWindow):
             checkbox_value = self.checkbox_values.get(filename, False)[cbox]
             self.checkboxes[cbox].setChecked(checkbox_value)
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent):
         """
         Handles key presses as shortcuts.
 
@@ -989,7 +990,7 @@ class MainWindow(QMainWindow):
         else:
             return False
 
-    def save_json(self, selected_file):
+    def save_json(self, selected_file: str):
         """
         Saves the current outputs to a JSON file.
 
@@ -1033,8 +1034,7 @@ class MainWindow(QMainWindow):
         with open(selected_file, 'w') as file:
             json.dump(data, file, indent=2)
 
-
-    def load_from_json(self):
+    def load_from_json(self) -> Tuple[Optional[List[str]], bool]:
         """
         Loads the previous outputs from a JSON file.
         """
@@ -1094,7 +1094,7 @@ class MainWindow(QMainWindow):
         elif clicked_button == cancel_button:
             QApplication.quit()
 
-    def load_bounding_box(self, file, finding, raw_rect):
+    def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
         """
         Loads a bounding box object from the x, y, height, width stored in the JSON file and adds it to the appropriate
         bboxes dictionary entry.
@@ -1111,7 +1111,7 @@ class MainWindow(QMainWindow):
         else:
             self.bboxes[file][finding] = [bbox_item]
 
-    def on_checkbox_changed(self, state):
+    def on_checkbox_changed(self, state: int):
         """
         Updates the checkbox values when a checkbox is changed, updates the cursor mode, and sets the current finding
         in the image view based on the checkbox state.
@@ -1147,7 +1147,7 @@ class MainWindow(QMainWindow):
             color = colors[idx % len(colors)]
             self.colors[finding] = color
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         """
         Handles the close event.
 
