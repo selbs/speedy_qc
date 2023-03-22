@@ -74,14 +74,6 @@ Keyboard Shortcuts
 
 Note: Cmd + Scroll and Shift + Scroll are only currently available on Mac OS X.
 
-Backup Files
-------------
-
-Work is automatically backed up in the user's home directory (`~`) in the folder `~/speedy_qc/backups`.
-By default, this will hold up to the latest ten backups and a backup will be made every ten minutes to
-allow for recovery in case of a crash. The number of backups and the backup directory can be customised
-in the configuration wizard or the `config.yml` file.
-
 Customisation
 -------------
 
@@ -107,6 +99,14 @@ These configuration settings are stored in the `config.yml` file in the `speedy_
 can be edited directly if desired. If you're using an executable, the `config.yml` file can be edited in 
 `Speedy QC.app/Contents/Resources/config.yml`, which accessible through the terminal or if using Mac OS X, by
 right-clicking on the executable and selecting `Show Package Contents`.
+
+
+Backup Files
+------------
+
+Work is automatically backed up every 10 minutes. By default, the backups are stored in the user's home 
+directory (`~`) in the folder `~/speedy_qc/backups` and up to the latest ten backups are stored.
+The number of backups and the backup directory can be customised in the configuration wizard or the `config.yml` file.
 
 
 Executable Application
