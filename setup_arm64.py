@@ -5,7 +5,9 @@ OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_
            'resources': ['speedy_qc/assets', 'speedy_qc/config.yml', 'speedy_qc/log.conf'],
            'dylib_excludes': ['libgfortran.3.dylib'],
            'frameworks': ['/opt/homebrew/Cellar/libffi/3.4.4/lib/libffi.8.dylib'],
-           'dist_dir': 'dist/arm64'
+           'dist_dir': 'dist/arm64',
+           'extra_script': ['speedy_qc/config_wizard.py', 'speedy_qc/custom_windows.py',
+                            'speedy_qc/main_window.py', 'speedy_qc/utils.py'],
            } | dict(plist=dict(NSRequiresAquaSystemAppearance=False,
                                CFBundleIconFile="speedy_qc/assets/icns/white_panel.icns",
                                ))
