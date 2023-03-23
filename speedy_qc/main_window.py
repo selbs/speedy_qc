@@ -25,13 +25,22 @@ import json
 import math
 from typing import Optional, Dict, List, Tuple
 import matplotlib.pyplot as plt
+import sys
+import pkg_resources
 
-from .custom_windows import AboutMessageBox
-from .utils import ConnectionManager, open_yml_file, setup_logging
+from speedy_qc.custom_windows import AboutMessageBox
+from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
+
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+else:
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
 
 settings = QSettings('SpeedyQC', 'DicomViewer')
-config_file = settings.value("last_config_file", os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.yml"))
-config_data = open_yml_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), config_file))
+config_file = settings.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+config_data = open_yml_file(os.path.join(resource_dir, config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
 
@@ -285,7 +294,7 @@ class MainWindow(QMainWindow):
         self.current_index = 0
         self.checkboxes = {}
         self.colors = {}
-        self.default_directory = settings.value("default_directory", os.path.dirname(os.path.abspath(__file__)))
+        self.default_directory = settings.value("default_directory", resource_dir)
         self.dir_path = dir_path
 
         # Set the initial window size
@@ -318,7 +327,7 @@ class MainWindow(QMainWindow):
         }
 
         # Set the window icon
-        icon_path = os.path.join(os.path.dirname(__file__), 'assets/icns/white_panel.icns')
+        icon_path = os.path.join(resource_dir, 'assets/icns/white_panel.icns')
         self.setWindowIcon(QIcon(icon_path))
 
         # Set the central widget to the image viewer
@@ -369,7 +378,7 @@ class MainWindow(QMainWindow):
         # Create the navigation toolbar
         self.file_tool_bar = QToolBar(self)
         # Create the logo action
-        logo_path = os.path.join(os.path.dirname(__file__), 'assets/1x/white_panel.png')
+        logo_path = os.path.join(resource_dir, 'assets/1x/white_panel.png')
         logo_pixmap = QPixmap(logo_path)
         self.logoAction = QAction(QIcon(logo_pixmap), "&About", self)
         self.file_tool_bar.addAction(self.logoAction)
@@ -574,7 +583,7 @@ class MainWindow(QMainWindow):
         the maximum number of backups, the backup directory and the log directory.
         """
         last_config_file = settings.value("last_config_file", "config.yml")
-        cbox_file = os.path.join(os.path.dirname(__file__), last_config_file)
+        cbox_file = os.path.join(resource_dir, last_config_file)
         return open_yml_file(cbox_file)
 
     def on_text_changed(self):

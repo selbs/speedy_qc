@@ -24,11 +24,18 @@ import os
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QFileDialog, QDialog, QMessageBox, QStyleFactory
 from qt_material import apply_stylesheet
+import pkg_resources
 
-from .main_window import MainWindow
-from .config_wizard import ConfigurationWizard
-from .custom_windows import LoadMessageBox
+from speedy_qc.main_window import MainWindow
+from speedy_qc.config_wizard import ConfigurationWizard
+from speedy_qc.custom_windows import LoadMessageBox
 
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+else:
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
 
 def load_dicom_dialog() -> str:
     """
@@ -113,8 +120,14 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
         # If the user selects to `Conf. Wizard`, show the ConfigurationWizard
         config_file = load_msg_box.config_combo.currentText()
         load_msg_box.save_last_config(config_file)
-        wizard = ConfigurationWizard(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml'))
-        wizard.show()
+        if hasattr(sys, '_MEIPASS'):
+            # This is a py2app executable
+            resource_dir = sys._MEIPASS
+        else:
+            # This is a regular Python script
+            resource_dir = os.path.dirname(os.path.abspath("__main__"))
+            wizard = ConfigurationWizard(os.path.join(resource_dir, 'config.yml'))
+            wizard.show()
 
     sys.exit(app.exec())
 

@@ -1,9 +1,8 @@
-from setuptools import setup, find_packages, find_namespace_packages
-import py2app
+from setuptools import setup, find_packages
 
 APP = ['speedy_qc/main.py']
 OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_cffi_backend'],
-           'resources': ['speedy_qc/assets', 'speedy_qc/config.yml'],
+           'resources': ['speedy_qc/assets', 'speedy_qc/config.yml', 'speedy_qc/log.conf'],
            'dylib_excludes': ['libgfortran.3.dylib'], 'frameworks': ['/usr/local/opt/libffi/lib/libffi.8.dylib'],
            'dist_dir': 'dist/86x64',
            } | dict(plist=dict(NSRequiresAquaSystemAppearance=False,
@@ -18,12 +17,13 @@ setup(
     url='https://github.com/selbs/speedy_qc',
     use_scm_version=True,
     setup_requires=["setuptools_scm>=7.0.4", "py2app>=0.28"],
-    packages=find_namespace_packages(),
+    packages=find_packages(),
     include_package_data=True,
     options={'py2app': OPTIONS},
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
+            'speedy_config=speedy_qc.config_wizard:main'
         ]
     },
     classifiers=[
@@ -48,5 +48,6 @@ setup(
         "qimage2ndarray>=1.10.0",
         "qt-material>=2.14",
         "QtAwesome>=1.2.3",
+        "matplotlib>=3.4.3"
     ],
 )

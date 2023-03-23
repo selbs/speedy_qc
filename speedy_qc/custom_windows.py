@@ -16,11 +16,24 @@ from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from typing import Optional
+import sys
+import pkg_resources
 
-from .utils import ConnectionManager
+from speedy_qc.utils import ConnectionManager
 
 logger = logging.getLogger(__name__)
 console_msg = logging.getLogger('consoleLog')
+
+
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+    print("************************************************")
+    print(f"Running from py2app executable at {resource_dir}")
+    print("************************************************")
+else:
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
 
 class AboutMessageBox(QDialog):
     """
@@ -45,7 +58,7 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
+        path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
         grey_logo = QPixmap(path)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -154,11 +167,8 @@ class LoadMessageBox(QDialog):
 
         left_layout = QVBoxLayout()
 
-        # Add the icon to the left side of the message box using a QLabel
-        path = os.path.dirname(__file__)
-
         # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
-        path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
+        path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
         logo = QPixmap(path)
 
         # Logs a warning if the logo cannot be loaded
@@ -200,13 +210,12 @@ class LoadMessageBox(QDialog):
 
         # Create a QComboBox for selecting the config file
         self.config_combo = QComboBox()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        for file in os.listdir(script_dir):
+        for file in os.listdir(resource_dir):
             if file.endswith('.yml'):
                 self.config_combo.addItem(file)
 
         # Set the default value of the QComboBox to the last config file used
-        last_config_file = self.settings.value("last_config_file", os.path.join(os.path.abspath(__file__), "config.yml"))
+        last_config_file = self.settings.value("last_config_file", os.path.join(resource_dir, "config.yml"))
         self.config_combo.setCurrentText(last_config_file)
 
         # Add the QComboBox to the dialog box

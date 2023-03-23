@@ -25,7 +25,16 @@ import yaml
 import os
 from typing import Dict, Tuple
 import PyQt6.QtCore as QtCore
+import sys
+import pkg_resources
 
+
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+else:
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
 
 def create_default_config() -> Dict:
     """
@@ -41,7 +50,7 @@ def create_default_config() -> Dict:
         'log_dir': '~/speedy_qc/logs'
     }
 
-    save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')
+    save_path = os.path.join(resource_dir, 'config.yml')
 
     # Save the default config to the speedy_qc directory
     with open(save_path, 'w') as f:
@@ -58,20 +67,24 @@ def open_yml_file(config_path: str) -> Dict:
     :param config_path: str, the path to the config file.
     :return: dict, the loaded configuration data from the YAML file.
     """
+    print("***********************************")
+    print(resource_dir)
+    print("***********************************")
+
     if not os.path.isfile(config_path):
         # If the config file does not exist, look for the default config file
         print(f"Could not find config file at {config_path}")
-        if os.path.isfile(os.path.abspath('./speedy_qc/config.yml')):
+        if os.path.isfile(os.path.join(resource_dir, 'config.yml')):
             print(f"Using default config file at "
-                  f"{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')}")
-            config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')
+                  f"{os.path.join(resource_dir, 'config.yml')}")
+            config_path = os.path.join(resource_dir, 'config.yml')
             with open(config_path, 'r') as f:
                 config_data = yaml.safe_load(f)
         else:
             # If the default config file does not exist, create a new one
-            print(f"Could not find default config file at {config_path}")
+            print(f"Could not find default config file at {os.path.join(resource_dir, 'config.yml')}")
             print(f"Creating a new default config file at "
-                  f"{os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.yml')}")
+                  f"{os.path.join(resource_dir, 'config.yml')}")
             config_data = create_default_config()
     else:
         # Open the config file and load the data
@@ -92,7 +105,7 @@ def setup_logging(log_out_path: str) -> Tuple[logging.Logger, logging.Logger]:
     """
     full_log_file_path = os.path.expanduser(os.path.join(log_out_path, "speedy_qc.log"))
     os.makedirs(os.path.dirname(full_log_file_path), exist_ok=True)
-    logging.config.fileConfig(os.path.abspath('./speedy_qc/log.conf'), defaults={'log_file_path': full_log_file_path})
+    logging.config.fileConfig(os.path.join(resource_dir, 'log.conf'), defaults={'log_file_path': full_log_file_path})
     logger = logging.getLogger(__name__)
     console_msg = logging.getLogger(__name__)
     return logger, console_msg

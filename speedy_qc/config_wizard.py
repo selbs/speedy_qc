@@ -17,8 +17,17 @@ from PyQt6.QtWidgets import *
 import yaml
 import os
 from qt_material import apply_stylesheet, get_theme
+import sys
+import pkg_resources
 
-from .utils import open_yml_file, setup_logging
+from speedy_qc.utils import open_yml_file, setup_logging
+
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+else:
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
 
 class ConfigurationWizard(QWizard):
     """
@@ -67,7 +76,8 @@ class ConfigurationWizard(QWizard):
         self.setOption(QWizard.WizardOption.IndependentPages, True)
 
         # Set the logo pixmap
-        icon_path = os.path.join(os.path.dirname(__file__), 'assets/3x/white_panel@3x.png')
+
+        icon_path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
         pixmap = QPixmap(icon_path)
         self.setPixmap(QWizard.WizardPixmap.LogoPixmap, pixmap.scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio))
 
@@ -199,8 +209,7 @@ class ConfigurationWizard(QWizard):
 
         # Create QComboBox for the list of available .yml files
         self.config_files_combobox = QComboBox()
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        for file in os.listdir(script_dir):
+        for file in os.listdir(resource_dir):
             if file.endswith('.yml'):
                 self.config_files_combobox.addItem(file)
 
@@ -216,7 +225,7 @@ class ConfigurationWizard(QWizard):
 
         # Display the save path
         layout.addWidget(QLabel("Save directory:"))
-        save_dir_label = QLabel(os.path.dirname(os.path.abspath(__file__)))
+        save_dir_label = QLabel(resource_dir)
         layout.addWidget(save_dir_label)
 
         return page
@@ -268,7 +277,7 @@ class ConfigurationWizard(QWizard):
         self.config_data['backup_dir'] = self.log_dir_edit.text()
         self.config_data['log_dir'] = self.log_dir_edit.text()
 
-        save_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+        save_path = os.path.join(resource_dir, filename)
 
         # Save the config file
         with open(save_path, 'w') as f:
@@ -291,7 +300,7 @@ if __name__ == '__main__':
     apply_stylesheet(app, theme='dark_blue.xml')
 
     # Set the directory of the main.py file as the default directory for the config files
-    default_dir = os.path.dirname(os.path.abspath(__file__))
+    default_dir = resource_dir
 
     # Load the last config file used
     settings = QSettings('SpeedyQC', 'DicomViewer')
