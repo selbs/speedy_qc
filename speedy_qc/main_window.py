@@ -26,7 +26,6 @@ import math
 from typing import Optional, Dict, List, Tuple
 import matplotlib.pyplot as plt
 import sys
-import pkg_resources
 
 from speedy_qc.custom_windows import AboutMessageBox
 from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
@@ -34,12 +33,14 @@ from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
-else:
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
-settings = QSettings('SpeedyQC', 'DicomViewer')
-config_file = settings.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+outer_setting = QSettings('SpeedyQC', 'DicomViewer')
+config_file = outer_setting.value("last_config_file", os.path.join(resource_dir, "config.yml"))
 config_data = open_yml_file(os.path.join(resource_dir, config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
@@ -89,8 +90,6 @@ class CustomGraphicsView(QGraphicsView):
     def zoom_in(self):
         """
         Zoom in by a factor of 1.2 (20%).
-
-        :param factor: float, the zoom factor.
         """
         factor = 1.2
         self.zoom *= factor
@@ -99,8 +98,6 @@ class CustomGraphicsView(QGraphicsView):
     def zoom_out(self):
         """
         Zoom out by a factor of 0.8 (20%).
-
-        :param factor: float, the zoom factor.
         """
         factor = 0.8
         self.zoom /= factor
@@ -157,7 +154,7 @@ class CustomGraphicsView(QGraphicsView):
                 self.start_rect = None
         super().mouseReleaseEvent(event)
 
-    def set_current_finding(self, finding: str, color: QColor):
+    def set_current_finding(self, finding: Optional[str], color: Optional[QColor]):
         """
         Set the current finding and color to be used when drawing bounding boxes.
 
@@ -190,6 +187,7 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[finding].append(bbox)
                 else:
                     self.rect_items[finding] = [bbox]
+
 
 class BoundingBoxItem(QGraphicsRectItem):
     """
@@ -227,6 +225,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         if selected_action == remove_action:
             self.scene().removeItem(self)
 
+
 class MainWindow(QMainWindow):
     """
     Main window for the application.
@@ -245,8 +244,8 @@ class MainWindow(QMainWindow):
         - apply_stored_rotation (self): Restore any rotation previously applied to the image.
         - rotate_bounding_boxes (self, filename: str, rotation_angle: int, reverse: bool = False): Rotate the bounding
                                 boxes to match the image is rotation.
-        - resizeEvent (self, event: QResizeEvent): Trigger the CustomGraphicsView to handle resizing and zoom of the image when
-                    the window is resized.
+        - resizeEvent (self, event: QResizeEvent): Trigger the CustomGraphicsView to handle resizing and zoom of the
+                                image when the window is resized.
         - load_file (self): Load the DICOM file at the given index and apply the look-up tables.
         - load_image (self): Add the image to the scene.
         - update_image (self): Update the image with the applied windowing.
@@ -277,14 +276,15 @@ class MainWindow(QMainWindow):
     """
     resized = pyqtSignal()
 
-    def __init__(self, dir_path: str):
+    def __init__(self, settings):
         """
         Initialize the main window.
 
-        :param dir_path: str, the path to the directory containing the DICOM files.
+        :param settings: QSettings, the loaded app settings.
         """
         super().__init__()
         # Initialize UI
+        self.settings = settings
         self.connection_manager = ConnectionManager()
         self.about_box = AboutMessageBox()
         self.setMouseTracking(True)
@@ -293,9 +293,10 @@ class MainWindow(QMainWindow):
         # Initialize variables
         self.current_index = 0
         self.checkboxes = {}
+        self.tristate_cboxes = False
         self.colors = {}
-        self.default_directory = settings.value("default_directory", resource_dir)
-        self.dir_path = dir_path
+        self.dir_path = self.settings.value("dicom_path", "")
+        self.json_path = self.settings.value("json_path", "")
 
         # Set the initial window size
         self.resize(1250, 950)
@@ -338,8 +339,9 @@ class MainWindow(QMainWindow):
         self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
 
         # Load the configuration file
-        config = self.open_findings_yml()
+        config = self.open_config_yml()
         self.findings = config['checkboxes']
+        self.tristate_cboxes = bool(config['tristate_cboxes'])
         self.max_backups = config['max_backups']
         self.backup_dir = config['backup_dir']
 
@@ -347,14 +349,14 @@ class MainWindow(QMainWindow):
         self.viewed_values = {f: False for f in self.file_list}
         self.rotation = {f: 0 for f in self.file_list}
         self.notes = {f: "" for f in self.file_list}
-        self.checkbox_values = {f: {finding: False for finding in self.findings} for f in self.file_list}
+        self.checkbox_values = {f: {finding: 0 for finding in self.findings} for f in self.file_list}
         self.bboxes = {f: {} for f in self.file_list}
 
         # Assign colors to findings
         self.assign_colors_to_findings()
 
         # Load the checkbox values from json file
-        self.loaded_file, self.loaded = self.load_from_json()
+        self.loaded = self.load_from_json()
         if self.loaded:
             self.restore_from_saved_state()
 
@@ -577,12 +579,12 @@ class MainWindow(QMainWindow):
         else:
             super().wheelEvent(event)
 
-    def open_findings_yml(self) -> Dict:
+    def open_config_yml(self) -> Dict:
         """
         Opens the config .yml file and returns the data, including the list of findings/checkboxes,
         the maximum number of backups, the backup directory and the log directory.
         """
-        last_config_file = settings.value("last_config_file", "config.yml")
+        last_config_file = self.settings.value("last_config_file", "config.yml")
         cbox_file = os.path.join(resource_dir, last_config_file)
         return open_yml_file(cbox_file)
 
@@ -638,7 +640,7 @@ class MainWindow(QMainWindow):
 
     def apply_stored_rotation(self):
         """
-        Applies the stored rotation to the image from previous settings.
+        Applies the stored rotation to the image from previous self.settings.
         """
         rotation_angle = self.rotation.get(self.file_list[self.current_index], 0)
         self.image = np.rot90(self.image, k=rotation_angle // 90)
@@ -756,14 +758,25 @@ class MainWindow(QMainWindow):
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
+            if self.tristate_cboxes:
+                self.checkboxes[cbox].setTristate(self.tristate_cboxes)
+            semitrans_color = QColor(self.colors[cbox])
+            semitrans_color.setAlpha(64)
             self.checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
                                                 f"background-color: {self.colors[cbox].name()}; "
                                                 f"image: url(nocheck);"
                                                 f"border: 1px solid #999;"
                                                 f"width: 18px;"
                                                 f"height: 18px;"
-                                                f"}}")
-            self.checkboxes[cbox].setChecked(bool(self.checkbox_values.get(filename, False).get(cbox, False)))
+                                                f"}}"
+                                                f"QCheckBox::indicator:indeterminate {{ "
+                                                f"background-color: {semitrans_color.name(QColor.NameFormat.HexArgb)}; "
+                                                f"image: url(nocheck);"
+                                                f"border: 1px solid {self.colors[cbox].name()};"
+                                                f"width: 18px;"
+                                                f"height: 18px;"
+                                                f"}} ")
+            self.checkboxes[cbox].setChecked(self.checkbox_values.get(filename, 0).get(cbox, 0))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
 
     def set_checkbox_toolbar(self):
@@ -822,9 +835,9 @@ class MainWindow(QMainWindow):
         Restores the state of the application from the saved state.
         """
         # Check for saved settings and restore last viewed file
-        if settings.contains('last_file') and settings.contains('last_index'):
-            last_file = settings.value('last_file')
-            last_index = settings.value('last_index')
+        if self.settings.contains('last_file') and self.settings.contains('last_index'):
+            last_file = self.settings.value('last_file')
+            last_index = self.settings.value('last_index')
             self.current_index = self.file_list.index(last_file) if last_file in self.file_list else last_index
 
         # Create a new file list that puts unviewed files after the current file.
@@ -981,11 +994,10 @@ class MainWindow(QMainWindow):
         Saves the current settings to the QSettings.
         """
         # Save current file and index
-        settings.setValue('last_file', self.file_list[self.current_index])
-        settings.setValue('last_index', self.current_index)
-        settings.setValue("max_backups", self.max_backups)
-        settings.setValue("backup_dir", self.backup_dir)
-        settings.setValue("default_directory", self.default_directory)
+        self.settings.setValue('last_file', self.file_list[self.current_index])
+        self.settings.setValue('last_index', self.current_index)
+        self.settings.setValue("max_backups", self.max_backups)
+        self.settings.setValue("backup_dir", self.backup_dir)
 
     def save_to_json(self):
         """
@@ -996,13 +1008,14 @@ class MainWindow(QMainWindow):
             if not saved:
                 return False
         else:
-            self.save_json(self.loaded_file)
+            self.save_json(self.json_path)
 
     def save_as(self):
         """
         Save as dialog.
         """
-        file_dialog = QFileDialog(self, 'Save to JSON', self.default_directory,
+        file_dialog = QFileDialog(self, 'Save to JSON', self.settings.value("default_directory", resource_dir),
+
                                   'JSON Files (*.json)')
         file_dialog.setAcceptMode(QFileDialog.AcceptMode.AcceptSave)
         file_dialog.setDefaultSuffix("json")
@@ -1011,7 +1024,7 @@ class MainWindow(QMainWindow):
         if file_dialog.exec() == QFileDialog.DialogCode.Accepted:
             save_path = file_dialog.selectedFiles()[0]
             self.save_json(save_path)
-            self.default_directory = file_dialog.directory().path()
+            self.settings.setValue("default_directory", file_dialog.directory().path())
             self.save_settings()
         else:
             return False
@@ -1060,65 +1073,34 @@ class MainWindow(QMainWindow):
         with open(selected_file, 'w') as file:
             json.dump(data, file, indent=2)
 
-    def load_from_json(self) -> Tuple[Optional[List[str]], bool]:
-        """
-        Loads the previous outputs from a JSON file.
-        """
-        msg_box = QMessageBox()
-        msg_box.setText("Do you want to load previous progress or create a new output file?")
-        icon_label = QLabel()
-        icon_label.setPixmap(self.icons['question'].pixmap(64, 64))
-        msg_box.setIconPixmap(icon_label.pixmap())
+    def load_from_json(self) -> bool:
 
-        load_button = QPushButton("Load")
-        msg_box.addButton(load_button, QMessageBox.ButtonRole.AcceptRole)
-        new_button = QPushButton("New")
-        msg_box.addButton(new_button, QMessageBox.ButtonRole.RejectRole)
-        cancel_button = msg_box.addButton(QMessageBox.StandardButton.Cancel)
-        msg_box.exec()
-        clicked_button = msg_box.clickedButton()
+        self.settings.setValue("default_directory", os.path.dirname(self.json_path))
 
-        if clicked_button == load_button:
-            file_dialog = QFileDialog(self, 'Open previously saved JSON File', self.default_directory,
-                                      'JSON Files (*.json)')
-            file_dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
-            file_dialog.exec()
+        if self.settings.value("new_json", True):
+            return False
+        else:
+            with open(self.json_path, 'r') as file:
+                data = json.load(file)
 
-            if file_dialog.DialogCode.Accepted:
-                selected_file = file_dialog.selectedFiles()[0]
-                self.default_directory = file_dialog.directory().path()
+            for entry in data:
+                filename = entry['filename']
+                self.viewed_values[filename] = entry['viewed']
+                self.rotation[filename] = entry['rotation']
+                self.notes[filename] = entry['notes']
 
-                with open(selected_file, 'r') as file:
-                    data = json.load(file)
+                if 'checkboxes' in entry:
+                    for cbox, value in entry['checkboxes'].items():
+                        if filename in self.checkbox_values:
+                            self.checkbox_values[filename][cbox] = value
+                        else:
+                            self.checkbox_values[filename] = {cbox: value}
 
-                for entry in data:
-                    filename = entry['filename']
-                    self.viewed_values[filename] = entry['viewed']
-                    self.rotation[filename] = entry['rotation']
-                    self.notes[filename] = entry['notes']
-
-                    if 'checkboxes' in entry:
-                        for cbox, value in entry['checkboxes'].items():
-                            if filename in self.checkbox_values:
-                                self.checkbox_values[filename][cbox] = value
-                            else:
-                                self.checkbox_values[filename] = {cbox: value}
-
-                    if 'bboxes' in entry:
-                        for finding, coord_sets in entry['bboxes'].items():
-                            for coord_set in coord_sets:
-                                self.load_bounding_box(filename, finding, coord_set)
-
-                return selected_file, True
-
-            else:
-                return None, False
-
-        elif clicked_button == new_button:
-            return None, False
-
-        elif clicked_button == cancel_button:
-            QApplication.quit()
+                if 'bboxes' in entry:
+                    for finding, coord_sets in entry['bboxes'].items():
+                        for coord_set in coord_sets:
+                            self.load_bounding_box(filename, finding, coord_set)
+                return True
 
     def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
         """
@@ -1146,8 +1128,8 @@ class MainWindow(QMainWindow):
         """
         filename = self.file_list[self.current_index]
         cbox = self.sender().text()
-        self.checkbox_values[filename][cbox] = bool(state)
-        settings.setValue(filename, state)
+        self.checkbox_values[filename][cbox] = state
+        self.settings.setValue(filename, state)
 
         if state:
             self.image_view.setDragMode(QGraphicsView.DragMode.NoDrag)

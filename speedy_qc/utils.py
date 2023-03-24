@@ -23,18 +23,19 @@ Classes:
 import logging.config
 import yaml
 import os
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 import PyQt6.QtCore as QtCore
 import sys
-import pkg_resources
 
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
-else:
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
 def create_default_config() -> Dict:
     """
@@ -58,7 +59,6 @@ def create_default_config() -> Dict:
 
     return default_config
 
-
 def open_yml_file(config_path: str) -> Dict:
     """
     Opens a config .yml file and returns the data. If the file does not exist, it will look
@@ -67,9 +67,9 @@ def open_yml_file(config_path: str) -> Dict:
     :param config_path: str, the path to the config file.
     :return: dict, the loaded configuration data from the YAML file.
     """
-    print("***********************************")
-    print(resource_dir)
-    print("***********************************")
+    print("*"*50)
+    print("Resource directory:", resource_dir)
+    print("*"*50)
 
     if not os.path.isfile(config_path):
         # If the config file does not exist, look for the default config file
@@ -133,7 +133,7 @@ class ConnectionManager:
     def __init__(self):
         self.connections = {}
 
-    def connect(self, signal: QtCore.pyqtSignal, slot: callable):
+    def connect(self, signal: Any, slot: callable):
         """
         Connects a signal to a slot and stores the connection in a dictionary.
 

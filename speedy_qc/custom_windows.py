@@ -17,9 +17,9 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from typing import Optional
 import sys
-import pkg_resources
+import json
 
-from speedy_qc.utils import ConnectionManager
+from speedy_qc.utils import ConnectionManager, open_yml_file
 
 logger = logging.getLogger(__name__)
 console_msg = logging.getLogger('consoleLog')
@@ -28,12 +28,11 @@ console_msg = logging.getLogger('consoleLog')
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
-    print("************************************************")
-    print(f"Running from py2app executable at {resource_dir}")
-    print("************************************************")
-else:
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
 class AboutMessageBox(QDialog):
     """
@@ -209,7 +208,7 @@ class LoadMessageBox(QDialog):
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
 
         # Create a QComboBox for selecting the config file
-        self.config_combo = QComboBox()
+        self.config_combo = QComboBox(self)
         for file in os.listdir(resource_dir):
             if file.endswith('.yml'):
                 self.config_combo.addItem(file)
@@ -231,7 +230,7 @@ class LoadMessageBox(QDialog):
 
         # Connect the currentTextChanged signal of the QComboBox to a slot
         # that saves the selected config file to QSettings
-        self.config_combo.currentTextChanged.connect(self.save_last_config)
+        self.connection_manager.connect(self.config_combo.currentTextChanged, self.save_last_config)
 
         right_layout.addItem(spacer)
 
@@ -303,3 +302,278 @@ class LoadMessageBox(QDialog):
         """
         # Save the selected config file to QSettings
         self.settings.setValue("last_config_file", config_file)
+
+
+def load_json_filenames_findings(json_path):
+
+    with open(json_path, 'r') as file:
+        data = json.load(file)
+
+    filenames = [entry['filename'] for entry in data]
+    cboxes = [cbox for entry in data if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
+    cbox_values = [value for entry in data if 'checkboxes' in entry for value in entry['checkboxes'].values()]
+    unique_cboxes = sorted(list(set(cboxes)))
+    unique_cbox_values = sorted(list(set(cbox_values)))
+
+    return filenames, unique_cboxes, unique_cbox_values
+
+
+class SetupWindow(QDialog):
+    def __init__(self, settings):
+        super().__init__()
+
+        # Set up UI elements
+        self.settings = settings
+        self.connection_manager = ConnectionManager()
+        self.folder_label = QLabel()
+        self.json_label = QLabel()
+        self.folder_label.setText(self.settings.value("dicom_path", ""))
+        self.json_label.setText(self.settings.value("json_path", ""))
+        self.folder_button = QPushButton("...")
+        self.json_button = QPushButton("...")
+        self.folder_button.setFixedSize(25, 25)
+        self.json_button.setFixedSize(25, 25)
+        self.new_json = False
+        self.config = open_yml_file(self.settings.value("last_config_file", os.path.join(resource_dir, "config.yml")))
+
+        # Set window title
+        self.setWindowTitle("Speedy QC Setup")
+
+        spacer = QSpacerItem(50, 50, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum)
+        expanding_spacer = QSpacerItem(10, 10, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        fixed_spacer = QSpacerItem(0, 0, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+
+        # Set up layout
+        layout = QVBoxLayout()
+
+        logo_layout = QHBoxLayout()
+
+        info_layout = QVBoxLayout()
+        general_info_label = QLabel("Please select the image folder and whether to load progress...")
+        general_info_label.setStyleSheet("font-size: 16px; font-weight: bold;")
+        general_add_info_label = QLabel("N.B. The previous folder and json file used should be selected by default. ")
+        general_add_info_label.setStyleSheet("font-size: 12px; font-style: italic;")
+        info_layout.addWidget(general_info_label)
+        info_layout.addWidget(general_add_info_label)
+        logo_layout.addLayout(info_layout)
+
+        logo_layout.addItem(spacer)
+
+        # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
+        path = os.path.join(resource_dir, 'assets/2x/white_panel@2x.png')
+        logo = QPixmap(path).scaled(100, 100)
+        icon_label = QLabel()
+        icon_label.setPixmap(logo)
+        logo_layout.addWidget(icon_label)
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignRight)
+        layout.addLayout(logo_layout)
+
+        layout.addItem(spacer)
+
+        layout.addSpacerItem(expanding_spacer)
+
+        dcm_layout = QVBoxLayout()
+        dcm_info_label = QLabel("Please select the folder containing the DICOM images:")
+        dcm_info_label.setStyleSheet("font-weight: bold;")
+        dcm_layout.addWidget(dcm_info_label)
+
+        dcm_layout.addSpacerItem(fixed_spacer)
+
+        dcm_selection_layout = QHBoxLayout()
+        dcm_selection_layout.addWidget(QLabel("Selected DICOM Folder:"))
+        dcm_selection_layout.addSpacerItem(expanding_spacer)
+        dcm_selection_layout.addWidget(self.folder_label)
+        dcm_selection_layout.addWidget(self.folder_button)
+        dcm_layout.addLayout(dcm_selection_layout)
+
+        layout.addLayout(dcm_layout)
+
+        layout.addItem(spacer)
+
+        layout.addSpacerItem(expanding_spacer)
+
+        json_layout = QVBoxLayout()
+        json_info_label = QLabel("To load progress, please select an existing .json file:")
+        json_info_label.setStyleSheet("font-weight: bold;")
+        json_layout.addWidget(json_info_label)
+
+        json_layout.addSpacerItem(fixed_spacer)
+
+        json_selection_layout = QHBoxLayout()
+        json_selection_layout.addWidget(QLabel("Selected JSON:"))
+        json_selection_layout.addSpacerItem(expanding_spacer)
+        json_selection_layout.addWidget(self.json_label)
+        json_selection_layout.addWidget(self.json_button)
+        json_layout.addLayout(json_selection_layout)
+
+        layout.addLayout(json_layout)
+
+        layout.addSpacerItem(fixed_spacer)
+
+        new_json_tickbox = QCheckBox("Start from scratch (i.e. start a new JSON file)")
+        new_json_tickbox.setStyleSheet("font-weight: bold;")
+        new_json_tickbox.setObjectName("new_json")
+        layout.addWidget(new_json_tickbox)
+
+        layout.addItem(spacer)
+
+        layout.addSpacerItem(expanding_spacer)
+        # Add dialog buttons
+        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.connection_manager.connect(self.button_box.accepted, self.on_accepted)
+        self.connection_manager.connect(self.button_box.rejected, self.reject)
+        layout.addWidget(self.button_box)
+
+        self.setLayout(layout)
+
+        # Initiate checkbox
+        if settings.value('json_path', "") == "":
+            # Set tickbox to ticked and inactivate load json button
+            new_json_tickbox.setChecked(2)
+            self.json_button.setEnabled(False)
+        else:
+            # Set tickbox to unticked and activate load json button
+            new_json_tickbox.setChecked(0)
+            self.json_button.setEnabled(True)
+
+
+        # Connect buttons to functions
+        self.connection_manager.connect(self.json_button.clicked, self.select_json)
+        self.connection_manager.connect(self.folder_button.clicked, self.select_dcm_folder)
+        self.connection_manager.connect(new_json_tickbox.stateChanged, self.on_json_checkbox_changed)
+
+
+        # Load previously selected files
+        self.load_saved_files(settings)
+
+    def on_accepted(self):
+        if self.check_json_compatibility(self.json_label.text()):
+            # Prevent the dialog from closing
+            self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+            return
+    def accept(self):
+        # The accept method is overridden to prevent the dialog from closing
+        pass
+
+    def on_json_checkbox_changed(self):
+        if self.sender().isChecked():
+            self.json_button.setEnabled(False)
+            self.json_label.setText("")
+            self.settings.setValue("new_json", True)
+        else:
+            self.json_button.setEnabled(True)
+            self.json_label.setText(self.settings.value("json_path", ""))
+            self.settings.setValue("new_json", False)
+
+    def load_saved_files(self, settings):
+        # Get saved file paths from QSettings
+        json_path = settings.value("json_path", "")
+        folder_path = settings.value("dicom_path", "")
+
+        # Update labels with saved file paths
+        if json_path:
+            self.json_label.setText(json_path)
+        if folder_path:
+            self.folder_label.setText(folder_path)
+
+    def save_file_paths(self, settings, json_path, folder_path):
+        # Save file paths to QSettings
+        settings.setValue("json_path", json_path)
+        settings.setValue("dicom_path", folder_path)
+
+    def select_json(self):
+        # Open file dialog to select JSON file
+        json_path, _ = QFileDialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json)")
+
+        # Update label and save file path
+        if json_path:
+            self.json_label.setText(json_path)
+            self.save_file_paths(self.settings, json_path, self.folder_label.text())
+
+    def select_dcm_folder(self):
+        dicom_dir = None
+        while dicom_dir is None:
+            # Open file dialog to select image folder
+            folder_path = QFileDialog.getExistingDirectory(self, "Select DICOM Folder", self.folder_label.text())
+
+            # Update label and save file path
+            if folder_path:
+                dcm_files = [f for f in os.listdir(folder_path) if f.endswith('.dcm')]
+                if len(dcm_files) == 0:
+                    error_msg_box = QMessageBox()
+                    error_msg_box.setIcon(QMessageBox.Icon.Warning)
+                    error_msg_box.setWindowTitle("Error")
+                    error_msg_box.setText("The directory does not appear to contain any dicom files!")
+                    error_msg_box.setInformativeText("Please try again.")
+                    error_msg_box.exec()
+                else:
+                    self.folder_label.setText(folder_path)
+                    self.save_file_paths(self.settings, self.json_label.text(), folder_path)
+            else:
+                break
+
+    def generate_json_tristate_incompatibility_msg(self):
+        QMessageBox.critical(self,
+                             "Error",
+                             f"JSON - CONFIG FILE CONFLICT!\n\n"
+                             f"The selected json file has tri-state checkbox values (i.e. uncertain) which is incompatible "
+                             f"with the config file selected.\n\n"
+                             f"Please select a new json file or start again and select a new config file.",
+                             QMessageBox.StandardButton.Ok,
+                             defaultButton=QMessageBox.StandardButton.Ok)
+
+    def generate_json_cbox_incompatibility_msg(self):
+        QMessageBox.critical(self,
+                             "Error",
+                             f"JSON - CONFIG FILE CONFLICT!\n\n"
+                             f"The selected json file has checkbox names which are not in the config file.\n\n"
+                             f"Please select a new json file or start again and select a new config file. ",
+                             QMessageBox.StandardButton.Ok,
+                             defaultButton=QMessageBox.StandardButton.Ok)
+
+    def generate_json_dcm_incompatibility_msg(self):
+        QMessageBox.critical(self,
+                             "Error",
+                             f"JSON - DICOM FOLDER CONFLICT!\n\n"
+                             f"The selected json file has image files which are not present in the selected DICOM "
+                             f"directory.\n\n"
+                             f"Please select a new json file or start again and select a new config file. ",
+                             QMessageBox.StandardButton.Ok,
+                             defaultButton=QMessageBox.StandardButton.Ok)
+
+    def check_config_json_compatibility(self, cboxes, cbox_values):
+
+        if not self.config['tristate_cboxes']:
+            if 1 in cbox_values:
+                self.generate_json_tristate_incompatibility_msg()
+                return False
+
+        for cbox in cboxes:
+            if cbox not in self.config['checkboxes']:
+                self.generate_json_cbox_incompatibility_msg()
+                return False
+
+        return True
+
+    def check_json_dicom_compatibility(self, filenames):
+        dcms = os.listdir(self.folder_label.text())
+
+        # Get list of dcms in json
+        for file in filenames:
+            if file not in dcms:
+                self.generate_json_dcm_incompatibility_msg()
+                return False
+
+        return True
+
+    def check_json_compatibility(self, json_path):
+        filenames, cboxes, cbox_values = load_json_filenames_findings(json_path)
+        config_compatible = self.check_config_json_compatibility(cboxes, cbox_values)
+        dcm_compatible = self.check_json_dicom_compatibility(filenames)
+        if dcm_compatible and config_compatible:
+            return True
+        return False
+
+    def closeEvent(self, event: QCloseEvent):
+        self.connection_manager.disconnect_all()
+        event.accept()

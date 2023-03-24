@@ -5,5 +5,6 @@ checkboxes:
 - QC3
 - QC4
 - QC5
+tristate_cboxes: true
 log_dir: ~/speedy_qc/logs
 max_backups: 10

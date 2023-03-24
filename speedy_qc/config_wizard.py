@@ -20,14 +20,16 @@ from qt_material import apply_stylesheet, get_theme
 import sys
 import pkg_resources
 
-from speedy_qc.utils import open_yml_file, setup_logging
+from speedy_qc.utils import open_yml_file, setup_logging, ConnectionManager
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
-else:
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
 class ConfigurationWizard(QWizard):
     """
@@ -53,6 +55,7 @@ class ConfigurationWizard(QWizard):
     def __init__(self, config_path: str):
         super().__init__()
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
+        self.connection_manager = ConnectionManager()
 
         self.setStyleSheet(f"""
             QLineEdit {{
@@ -123,6 +126,15 @@ class ConfigurationWizard(QWizard):
         # Create a vertical layout for the page
         layout = QVBoxLayout(page)
 
+        cbox_layout = QHBoxLayout()
+        self.tristate_checkbox = QCheckBox("Use tri-state checkboxes, i.e. have third uncertain option")
+        self.tristate_checkbox.setChecked(bool(self.config_data.get('tristate_checkboxes', False)))
+        self.connection_manager.connect(self.tristate_checkbox.stateChanged, self.update_tristate_checkboxes_state)
+        cbox_layout.addWidget(self.tristate_checkbox)
+        cbox_layout.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        cbox_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(cbox_layout)
+
         # Create a widget for the checkbox labels
         self.labels_widget = QWidget(page)
         self.labels_layout = QVBoxLayout(self.labels_widget)
@@ -138,6 +150,12 @@ class ConfigurationWizard(QWizard):
         layout.addWidget(self.add_label_button)
 
         return page
+
+    def update_tristate_checkboxes_state(self, state):
+        """
+        Updates the state of the tristate_checkboxes option in the config file.
+        """
+        self.config_data['tristate_checkboxes'] = state
 
     def create_backup_page(self):
         """
@@ -273,6 +291,7 @@ class ConfigurationWizard(QWizard):
                 new_checkbox_labels.append(line_edit.text())
 
         self.config_data['checkboxes'] = new_checkbox_labels
+        self.config_data['tristate_cboxes'] = bool(self.tristate_checkbox.checkState())
         self.config_data['max_backups'] = self.backup_spinbox.value()
         self.config_data['backup_dir'] = self.log_dir_edit.text()
         self.config_data['log_dir'] = self.log_dir_edit.text()

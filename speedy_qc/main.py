@@ -21,54 +21,25 @@ Usage:
 
 import sys
 import os
-from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QApplication, QFileDialog, QDialog, QMessageBox, QStyleFactory
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
 from qt_material import apply_stylesheet
-import pkg_resources
 
 from speedy_qc.main_window import MainWindow
 from speedy_qc.config_wizard import ConfigurationWizard
-from speedy_qc.custom_windows import LoadMessageBox
+from speedy_qc.custom_windows import LoadMessageBox, SetupWindow
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
-else:
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
-def load_dicom_dialog() -> str:
-    """
-    Prompts the user to select a directory of DICOM files. The function continues to prompt the user until
-    a valid directory containing DICOM files is selected or the user cancels the operation.
 
-    :return: str, the selected directory containing DICOM files. If the user cancels the operation, the program exits.
-    """
-
-    # Continue to prompt the user to select a directory until a valid directory is selected
-    dicom_dir = None
-    while dicom_dir is None:
-        # Use QFileDialog to select a directory
-        dir_dialog = QFileDialog()
-        dir_dialog.setFileMode(QFileDialog.FileMode.Directory)
-        dir_dialog.setWindowTitle("Select DICOM directory")
-        if dir_dialog.exec() == QDialog.DialogCode.Accepted:
-            dir_path = dir_dialog.selectedFiles()[0]
-            if dir_path:
-                # List dicom files in the selected directory
-                dcm_files = [f for f in os.listdir(dir_path) if f.endswith('.dcm')]
-                # Show an error message box if the selected directory does not contain any dicom files
-                if len(dcm_files) == 0:
-                    error_msg_box = QMessageBox()
-                    error_msg_box.setIcon(QMessageBox.Icon.Warning)
-                    error_msg_box.setWindowTitle("Error")
-                    error_msg_box.setText("The directory does not appear to contain any dicom files!")
-                    error_msg_box.setInformativeText("Please try again.")
-                    error_msg_box.exec()
-                else:
-                    return dir_path
-        else:
-            sys.exit()
 
 
 def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawesome'):
@@ -107,27 +78,39 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
     load_msg_box = LoadMessageBox()
     result = load_msg_box.exec()
 
+    settings = QSettings('SpeedyQC', 'DicomViewer')
+
+    # User selects to `Ok` -> load the load dialog box
     if result == load_msg_box.DialogCode.Accepted:
         # If the user selects to `Ok`, load the dialog to select the dicom directory
-        dicom_dir = load_dicom_dialog()
-        # Create the main window and pass the dicom directory
-        window = MainWindow(dicom_dir)
-        window.show()
+        setup_window = SetupWindow(settings)
+        result = setup_window.exec()
+
+        if result == setup_window.DialogCode.Accepted:
+            # Create the main window and pass the dicom directory
+            window = MainWindow(settings)
+            window.show()
+        else:
+            sys.exit()
+
+    # User selects to `Cancel` -> exit the application
     elif result == load_msg_box.DialogCode.Rejected:
-        # If the user selects to `Cancel`, exit the application
         sys.exit()
+
+    # User selects to `Conf. Wizard` -> show the ConfigurationWizard
     else:
-        # If the user selects to `Conf. Wizard`, show the ConfigurationWizard
         config_file = load_msg_box.config_combo.currentText()
         load_msg_box.save_last_config(config_file)
         if hasattr(sys, '_MEIPASS'):
             # This is a py2app executable
             resource_dir = sys._MEIPASS
-        else:
+        elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
             # This is a regular Python script
             resource_dir = os.path.dirname(os.path.abspath("__main__"))
-            wizard = ConfigurationWizard(os.path.join(resource_dir, 'config.yml'))
-            wizard.show()
+        else:
+            resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
+        wizard = ConfigurationWizard(os.path.join(resource_dir, 'config.yml'))
+        wizard.show()
 
     sys.exit(app.exec())
 
