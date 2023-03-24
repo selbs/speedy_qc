@@ -1075,11 +1075,12 @@ class MainWindow(QMainWindow):
 
     def load_from_json(self) -> bool:
 
-        self.settings.setValue("default_directory", os.path.dirname(self.json_path))
+        print(self.settings.value("new_json"))
 
-        if self.settings.value("new_json", True):
+        if self.settings.value("new_json", False):
             return False
         else:
+            self.settings.setValue("default_directory", os.path.dirname(self.json_path))
             with open(self.json_path, 'r') as file:
                 data = json.load(file)
 

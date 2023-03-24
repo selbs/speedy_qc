@@ -19,10 +19,21 @@ from typing import Optional
 import sys
 import json
 
-from speedy_qc.utils import ConnectionManager, open_yml_file
+from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
 
-logger = logging.getLogger(__name__)
-console_msg = logging.getLogger('consoleLog')
+if hasattr(sys, '_MEIPASS'):
+    # This is a py2app executable
+    resource_dir = sys._MEIPASS
+elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
+    # This is a regular Python script
+    resource_dir = os.path.dirname(os.path.abspath("__main__"))
+else:
+    resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
+
+outer_setting = QSettings('SpeedyQC', 'DicomViewer')
+config_file = outer_setting.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+config_data = open_yml_file(os.path.join(resource_dir, config_file))
+logger, console_msg = setup_logging(config_data['log_dir'])
 
 
 if hasattr(sys, '_MEIPASS'):
@@ -301,7 +312,8 @@ class LoadMessageBox(QDialog):
         Save the selected config file to QSettings
         """
         # Save the selected config file to QSettings
-        self.settings.setValue("last_config_file", config_file)
+        print(f"Selected config file: {config_file}")
+        self.settings.setValue("last_config_file", os.path.join(resource_dir, config_file))
 
 
 def load_json_filenames_findings(json_path):
@@ -410,10 +422,10 @@ class SetupWindow(QDialog):
 
         layout.addSpacerItem(fixed_spacer)
 
-        new_json_tickbox = QCheckBox("Start from scratch (i.e. start a new JSON file)")
-        new_json_tickbox.setStyleSheet("font-weight: bold;")
-        new_json_tickbox.setObjectName("new_json")
-        layout.addWidget(new_json_tickbox)
+        self.new_json_tickbox = QCheckBox("Start from scratch (i.e. start a new JSON file)")
+        self.new_json_tickbox.setStyleSheet("font-weight: bold;")
+        self.new_json_tickbox.setObjectName("new_json")
+        layout.addWidget(self.new_json_tickbox)
 
         layout.addItem(spacer)
 
@@ -429,28 +441,31 @@ class SetupWindow(QDialog):
         # Initiate checkbox
         if settings.value('json_path', "") == "":
             # Set tickbox to ticked and inactivate load json button
-            new_json_tickbox.setChecked(2)
+            self.new_json_tickbox.setChecked(2)
             self.json_button.setEnabled(False)
         else:
             # Set tickbox to unticked and activate load json button
-            new_json_tickbox.setChecked(0)
+            self.new_json_tickbox.setChecked(0)
             self.json_button.setEnabled(True)
 
 
         # Connect buttons to functions
         self.connection_manager.connect(self.json_button.clicked, self.select_json)
         self.connection_manager.connect(self.folder_button.clicked, self.select_dcm_folder)
-        self.connection_manager.connect(new_json_tickbox.stateChanged, self.on_json_checkbox_changed)
+        self.connection_manager.connect(self.new_json_tickbox.stateChanged, self.on_json_checkbox_changed)
 
 
         # Load previously selected files
         self.load_saved_files(settings)
 
     def on_accepted(self):
-        if self.check_json_compatibility(self.json_label.text()):
+        if self.new_json_tickbox.isChecked():
+            super().accept()
+        elif self.check_json_compatibility(self.json_label.text()):
             # Prevent the dialog from closing
             self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
             return
+
     def accept(self):
         # The accept method is overridden to prevent the dialog from closing
         pass
