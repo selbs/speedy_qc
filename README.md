@@ -47,6 +47,14 @@ Alternatively, the app may be run from an executable (see below).
 
 Outputs are stored in a .json file in a directory chosen by the user.
 
+Checkboxes are stored as integers:  
+
+| Checkbox Value  |   Meaning   |
+|:---------------:|:-----------:|
+|        0        | False / No  |
+|        1        |  Uncertain  |
+|        2        | True / Yes  |
+
 ### Bounding Boxes
 
 - Added to the image by clicking and dragging the mouse.
@@ -58,19 +66,19 @@ Outputs are stored in a .json file in a directory chosen by the user.
 Keyboard Shortcuts
 ------------------
 
-| Key            | Action             |
-|----------------|--------------------|
-| B              | Previous image     |
-| N              | Next image         |
-| + / =          | Zoom in            |
-| - / _          | Zoom out           |
-| I              | Invert grayscale   |
-| R              | Rotate image right |
-| L              | Rotate image left  |
-| S              | Save to CSV        |
-| Cmd/Ctrl + Q   | Quit               |
-| Cmd + Scroll   | Window Width       |
-| Shift + Scroll | Window Center      |
+|       Key        | Action             |
+|:----------------:|--------------------|
+|        B         | Previous image     |
+|        N         | Next image         |
+|      + / =       | Zoom in            |
+|      - / _       | Zoom out           |
+|        I         | Invert grayscale   |
+|        R         | Rotate image right |
+|        L         | Rotate image left  |
+|        S         | Save to CSV        |
+|   Cmd/Ctrl + Q   | Quit               |
+|   Cmd + Scroll   | Window Width       |
+|  Shift + Scroll  | Window Center      |
 
 Note: Cmd + Scroll and Shift + Scroll are only currently available on Mac OS X.
 
@@ -79,6 +87,7 @@ Customisation
 
 The program can be customised to suit the user's needs. The following options are available:
 - Select which checkboxes are required
+- Select whether checkboxes can be set to 'uncertain' (i.e. 1 - see above)
 - Change the maximum number of backups
 - Change the backup directory
 - Change the log directory
