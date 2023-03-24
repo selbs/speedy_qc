@@ -8,6 +8,12 @@ that provides information about the application and its license.
 Classes:
     - LoadMessageBox: A custom QDialog for selecting a configuration file when launching the application.
     - AboutMessageBox: A custom QDialog for displaying information about the application and its license.
+    - SetupWindow: A custom QDialog for displaying the setup window when the application is first launched to allow
+                            the user to select the dicom directory and decide whether to continue previous progress by
+                             loading an existing json file.
+
+Functions:
+    - load_json_filenames_findings: Load the filenames and findings from a json file.
 """
 
 import os
@@ -316,20 +322,6 @@ class LoadMessageBox(QDialog):
         self.settings.setValue("last_config_file", os.path.join(resource_dir, config_file))
 
 
-def load_json_filenames_findings(json_path):
-
-    with open(json_path, 'r') as file:
-        data = json.load(file)
-
-    filenames = [entry['filename'] for entry in data]
-    cboxes = [cbox for entry in data if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
-    cbox_values = [value for entry in data if 'checkboxes' in entry for value in entry['checkboxes'].values()]
-    unique_cboxes = sorted(list(set(cboxes)))
-    unique_cbox_values = sorted(list(set(cbox_values)))
-
-    return filenames, unique_cboxes, unique_cbox_values
-
-
 class SetupWindow(QDialog):
     def __init__(self, settings):
         super().__init__()
@@ -459,6 +451,9 @@ class SetupWindow(QDialog):
         self.load_saved_files(settings)
 
     def on_accepted(self):
+        """
+        Overwrite the default accept method to prevent the dialog from closing if the json file is not compatible.
+        """
         if self.new_json_tickbox.isChecked():
             super().accept()
         elif self.check_json_compatibility(self.json_label.text()):
@@ -467,10 +462,15 @@ class SetupWindow(QDialog):
             return
 
     def accept(self):
-        # The accept method is overridden to prevent the dialog from closing
+        """
+        Overwrite the default accept method to prevent the dialog from closing with an incompatible json.
+        """
         pass
 
     def on_json_checkbox_changed(self):
+        """
+        When the new json checkbox is ticked, disable the json file dialog button and clear the json label.
+        """
         if self.sender().isChecked():
             self.json_button.setEnabled(False)
             self.json_label.setText("")
@@ -481,6 +481,11 @@ class SetupWindow(QDialog):
             self.settings.setValue("new_json", False)
 
     def load_saved_files(self, settings):
+        """
+        Load previously selected files from QSettings.
+
+        :param settings: QSettings object
+        """
         # Get saved file paths from QSettings
         json_path = settings.value("json_path", "")
         folder_path = settings.value("dicom_path", "")
@@ -492,11 +497,21 @@ class SetupWindow(QDialog):
             self.folder_label.setText(folder_path)
 
     def save_file_paths(self, settings, json_path, folder_path):
+        """
+        Update QSettings
+
+        :param settings: QSettings object to update
+        :param json_path: Path to JSON file
+        :param folder_path: Path to DICOM folder
+        """
         # Save file paths to QSettings
         settings.setValue("json_path", json_path)
         settings.setValue("dicom_path", folder_path)
 
     def select_json(self):
+        """
+        Open file dialog to select JSON file.
+        """
         # Open file dialog to select JSON file
         json_path, _ = QFileDialog.getOpenFileName(self, "Select JSON File", "", "JSON Files (*.json)")
 
@@ -506,6 +521,9 @@ class SetupWindow(QDialog):
             self.save_file_paths(self.settings, json_path, self.folder_label.text())
 
     def select_dcm_folder(self):
+        """
+        Open file dialog to select DICOM folder. Only accept if directory contains a dicom file.
+        """
         dicom_dir = None
         while dicom_dir is None:
             # Open file dialog to select image folder
@@ -528,6 +546,10 @@ class SetupWindow(QDialog):
                 break
 
     def generate_json_tristate_incompatibility_msg(self):
+        """
+        Generate a message box to inform the user that the selected json file is incompatible with the config file
+        due to the tristate checkbox setting.
+        """
         QMessageBox.critical(self,
                              "Error",
                              f"JSON - CONFIG FILE CONFLICT!\n\n"
@@ -538,6 +560,10 @@ class SetupWindow(QDialog):
                              defaultButton=QMessageBox.StandardButton.Ok)
 
     def generate_json_cbox_incompatibility_msg(self):
+        """
+        Generate a message box to inform the user that the selected json file is incompatible with the config file
+        due to different checkbox names.
+        """
         QMessageBox.critical(self,
                              "Error",
                              f"JSON - CONFIG FILE CONFLICT!\n\n"
@@ -547,6 +573,10 @@ class SetupWindow(QDialog):
                              defaultButton=QMessageBox.StandardButton.Ok)
 
     def generate_json_dcm_incompatibility_msg(self):
+        """
+        Generate a message box to inform the user that the selected json file is incompatible with the DICOM folder
+        as it contains DICOM filenames which are not present in the folder.
+        """
         QMessageBox.critical(self,
                              "Error",
                              f"JSON - DICOM FOLDER CONFLICT!\n\n"
@@ -557,6 +587,9 @@ class SetupWindow(QDialog):
                              defaultButton=QMessageBox.StandardButton.Ok)
 
     def check_config_json_compatibility(self, cboxes, cbox_values):
+        """
+        Check if the selected json file is compatible with the config file.
+        """
 
         if not self.config['tristate_cboxes']:
             if 1 in cbox_values:
@@ -571,6 +604,9 @@ class SetupWindow(QDialog):
         return True
 
     def check_json_dicom_compatibility(self, filenames):
+        """
+        Check if the selected json file is compatible with the DICOM folder.
+        """
         dcms = os.listdir(self.folder_label.text())
 
         # Get list of dcms in json
@@ -582,6 +618,10 @@ class SetupWindow(QDialog):
         return True
 
     def check_json_compatibility(self, json_path):
+        """
+        Check if the selected json file is compatible with the DICOM files in the image directory and the selected
+        config yml file. This prevents the program from crashing if incompatible files are selected.
+        """
         filenames, cboxes, cbox_values = load_json_filenames_findings(json_path)
         config_compatible = self.check_config_json_compatibility(cboxes, cbox_values)
         dcm_compatible = self.check_json_dicom_compatibility(filenames)
@@ -590,5 +630,24 @@ class SetupWindow(QDialog):
         return False
 
     def closeEvent(self, event: QCloseEvent):
+        """
+        Handles a close event and disconnects connections between signals and slots.
+        """
         self.connection_manager.disconnect_all()
         event.accept()
+
+def load_json_filenames_findings(json_path):
+    """
+    Load the filenames and findings from a json file.
+    """
+
+    with open(json_path, 'r') as file:
+        data = json.load(file)
+
+    filenames = [entry['filename'] for entry in data]
+    cboxes = [cbox for entry in data if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
+    cbox_values = [value for entry in data if 'checkboxes' in entry for value in entry['checkboxes'].values()]
+    unique_cboxes = sorted(list(set(cboxes)))
+    unique_cbox_values = sorted(list(set(cbox_values)))
+
+    return filenames, unique_cboxes, unique_cbox_values
