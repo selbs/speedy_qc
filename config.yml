@@ -1,0 +1,19 @@
+backup_dir: ~/speedy_qc/backups
+checkboxes:
+- No Finding
+- Enlarged Cardiomediastinum
+- Cardiomegaly
+- Lung Lesion (Mass/Nodule)
+- Airspace Opacity
+- Edema
+- Consolidation
+- Pneumonia
+- Atelectasis / Collapse
+- Pneumothorax / Pneumomediastinum
+- Pleural Effusion
+- Pleural Other (Pleural Thickening, Fibrosis)
+- Fracture
+- Support Devices (Tubes/Lines/Hardware/Pacer/Defibrillator)
+- Other Finding
+log_dir: ~/speedy_qc/logs
+max_backups: 20

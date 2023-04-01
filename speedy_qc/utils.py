@@ -24,8 +24,11 @@ import logging.config
 import yaml
 import os
 from typing import Dict, Tuple, Any
-import PyQt6.QtCore as QtCore
+from PyQt6.QtCore import *
+from PyQt6.QtGui import *
+from PyQt6.QtWidgets import *
 import sys
+from qt_material import get_theme
 
 
 if hasattr(sys, '_MEIPASS'):
@@ -50,6 +53,7 @@ def create_default_config() -> Dict:
         'backup_dir': '~/speedy_qc/backups',
         'log_dir': '~/speedy_qc/logs',
         'tristate_checkboxes': True,
+        'backup_interval': 5,
     }
 
     save_path = os.path.join(resource_dir, 'config.yml')
@@ -115,7 +119,7 @@ class Connection:
     """
     A class to manage a single connection between a signal and a slot in a Qt application.
     """
-    def __init__(self, signal: QtCore.pyqtSignal, slot: callable):
+    def __init__(self, signal: pyqtSignal, slot: callable):
         self.signal = signal
         self.slot = slot
         self.connection = self.signal.connect(self.slot)

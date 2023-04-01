@@ -26,6 +26,7 @@ import math
 from typing import Optional, Dict, List, Tuple
 import matplotlib.pyplot as plt
 import sys
+import collections
 
 from speedy_qc.custom_windows import AboutMessageBox
 from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
@@ -297,6 +298,7 @@ class MainWindow(QMainWindow):
         self.colors = {}
         self.dir_path = self.settings.value("dicom_path", "")
         self.json_path = self.settings.value("json_path", "")
+        self.backup_interval = self.settings.value("backup_interval", 5, type=int)
 
         # Set the initial window size
         self.resize(1250, 950)
@@ -344,6 +346,7 @@ class MainWindow(QMainWindow):
         self.tristate_cboxes = bool(config['tristate_cboxes'])
         self.max_backups = config['max_backups']
         self.backup_dir = config['backup_dir']
+        self.backup_interval = config['backup_interval']
 
         # Initialize dictionaries for outputs
         self.viewed_values = {f: False for f in self.file_list}
@@ -437,6 +440,7 @@ class MainWindow(QMainWindow):
         self.window_width_label = QAction(self.icons['ww'], "Window Width", self)
         self.window_center_slider = QSlider(Qt.Orientation.Horizontal)
         self.window_width_slider = QSlider(Qt.Orientation.Horizontal)
+
         self.window_center_slider.setRange(1, 255)
         self.window_center_slider.setValue(127)
         self.window_width_slider.setRange(1, 450)
@@ -480,12 +484,31 @@ class MainWindow(QMainWindow):
         # Backup progress... just in case...
         self.backup_files = None
         self.timer = QTimer()
-        self.timer.setInterval(10 * 60 * 1000)  # 10 minutes in milliseconds
+        self.timer.setInterval(self.backup_int * 60 * 1000)  # convert minutes to milliseconds
         self.connection_manager.connect(self.timer.timeout, self.backup_file)
         self.timer.start()
 
         # Add and rotate the bounding boxes as necessary to match the rotation of the first image
         self.prep_first_image()
+
+        # create a progress bar
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setMinimum(0)
+        self.progress_bar.setMinimumWidth(self.width())
+        self.progress_bar.setFixedHeight(5)
+        progress_color = QColor(get_theme("dark_blue.xml")['primaryColor'])
+        progress_color.setAlpha(100)
+        self.progress_bar.setStyleSheet(
+            f"""QProgressBar::chunk {{background: {progress_color.name(QColor.NameFormat.HexArgb)};}}""")
+        # add the progress bar to the status bar at the bottom of the window
+        self.statusBar().addPermanentWidget(self.progress_bar)
+        percent_viewed = 100 * len([value for value in self.viewed_values.values() if value]) / len(self.file_list)
+        self.update_progress_bar(percent_viewed)
+
+    def update_progress_bar(self, progress):
+        self.progress_bar.setValue(int(progress))
 
     def prep_first_image(self):
         """
@@ -865,9 +888,9 @@ class MainWindow(QMainWindow):
         if direction not in ("previous", "next"):
             raise ValueError("Invalid direction value. Expected 'previous' or 'next'.")
 
-        if direction == "previous":
-            self.viewed_values[self.file_list[self.current_index]] = True
-        elif not prev_failed:
+        # if direction == "previous":
+        #     self.viewed_values[self.file_list[self.current_index]] = True
+        if not prev_failed:
             self.viewed_values[self.file_list[self.current_index]] = True
         else:
             self.viewed_values[self.file_list[self.current_index]] = "FAILED"
@@ -926,6 +949,9 @@ class MainWindow(QMainWindow):
             QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
                     else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
         )
+
+        percent_viewed = 100*len([value for value in self.viewed_values.values() if value])/len(self.file_list)
+        self.update_progress_bar(percent_viewed)
 
     def previous_image(self):
         """
@@ -998,6 +1024,7 @@ class MainWindow(QMainWindow):
         self.settings.setValue('last_index', self.current_index)
         self.settings.setValue("max_backups", self.max_backups)
         self.settings.setValue("backup_dir", self.backup_dir)
+        self.settings.setValue("backup_interval", self.backup_interval)
 
     def save_to_json(self):
         """

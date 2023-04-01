@@ -88,6 +88,7 @@ class ConfigurationWizard(QWizard):
         self.config_data = open_yml_file(self.config_path)
         self.checkboxes = self.config_data.get('checkboxes', [])
         self.max_backups = self.config_data.get('max_backups', 10)
+        self.backup_interval = self.config_data.get('backup_interval', 5)
         self.backup_dir = self.config_data.get('backup_dir', '~/speedy_qc/backups')
         self.log_dir = self.config_data.get('log_dir', '~/speedy_qc/logs')
 
@@ -199,6 +200,13 @@ class ConfigurationWizard(QWizard):
         self.backup_layout.addWidget(QLabel("Maximum Number of Backups:"))
         self.backup_layout.addWidget(self.backup_spinbox)
 
+        self.backup_int_spinbox = QSpinBox()
+        self.backup_int_spinbox.setRange(1, 30)
+        self.backup_int_spinbox.setValue(self.backup_interval)
+
+        self.backup_layout.addWidget(QLabel("Backup interval (mins):"))
+        self.backup_layout.addWidget(self.backup_int_spinbox)
+
         layout.addWidget(self.backup_widget)
 
         return page
@@ -293,7 +301,8 @@ class ConfigurationWizard(QWizard):
         self.config_data['checkboxes'] = new_checkbox_labels
         self.config_data['tristate_cboxes'] = bool(self.tristate_checkbox.checkState())
         self.config_data['max_backups'] = self.backup_spinbox.value()
-        self.config_data['backup_dir'] = self.log_dir_edit.text()
+        self.config_data['backup_interval'] = self.backup_int_spinbox.value()
+        self.config_data['backup_dir'] = self.backup_dir_edit.text()
         self.config_data['log_dir'] = self.log_dir_edit.text()
 
         save_path = os.path.join(resource_dir, filename)
