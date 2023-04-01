@@ -301,7 +301,7 @@ class MainWindow(QMainWindow):
         self.backup_interval = self.settings.value("backup_interval", 5, type=int)
 
         # Set the initial window size
-        self.resize(1250, 950)
+        self.resize(1250, 1000)
 
         # Set the default colors for the icons
         qta.set_defaults(
