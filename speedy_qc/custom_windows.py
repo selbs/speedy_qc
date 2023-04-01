@@ -542,6 +542,7 @@ class SetupWindow(QDialog):
                 else:
                     self.folder_label.setText(folder_path)
                     self.save_file_paths(self.settings, self.json_label.text(), folder_path)
+                    dicom_dir = folder_path
             else:
                 break
 
