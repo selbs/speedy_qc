@@ -66,19 +66,19 @@ Checkboxes are stored as integers:
 Keyboard Shortcuts
 ------------------
 
-|                      Key                      | Action             |
-|:---------------------------------------------:|--------------------|
-|                 <kbd>B</kbd>                  | Previous image     |
-|                 <kbd>N</kbd>                  | Next image         |
-|          <kbd>+</kbd> / <kbd>=</kbd>          | Zoom in            |
-|          <kbd>-</kbd> / <kbd>_</kbd>          | Zoom out           |
-|                 <kbd>I</kbd>                  | Invert grayscale   |
+|                      Key                      |       Action       |
+|:---------------------------------------------:|:------------------:|
+|                 <kbd>B</kbd>                  |   Previous image   |
+|                 <kbd>N</kbd>                  |     Next image     |
+|          <kbd>+</kbd> / <kbd>=</kbd>          |      Zoom in       |
+|          <kbd>-</kbd> / <kbd>_</kbd>          |      Zoom out      |
+|                 <kbd>I</kbd>                  |  Invert grayscale  |
 |                 <kbd>R</kbd>                  | Rotate image right |
 |                 <kbd>L</kbd>                  | Rotate image left  |
-|                 <kbd>S</kbd>                  | Save to CSV        |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit               |
-|            <kbd>Cmd</kbd> + Scroll            | Window Width       |
-|           <kbd>Shift</kbd> + Scroll           | Window Center      |
+|                 <kbd>S</kbd>                  |    Save to CSV     |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> |        Quit        |
+|            <kbd>Cmd</kbd> + Scroll            |    Window Width    |
+|           <kbd>Shift</kbd> + Scroll           |   Window Center    |
 
 Note: <kbd>Cmd</kbd> + Scroll and <kbd>Shift</kbd> + Scroll are only currently available on Mac OS X.
 
