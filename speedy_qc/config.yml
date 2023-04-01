@@ -1,10 +1,20 @@
 backup_dir: ~/speedy_qc/backups
 checkboxes:
-- QC1
-- QC2
-- QC3
-- QC4
-- QC5
-tristate_cboxes: true
+- No Finding
+- Enlarged Cardiomediastinum
+- Cardiomegaly
+- Lung Lesion (Mass/Nodule)
+- Airspace Opacity
+- Edema
+- Consolidation
+- Pneumonia
+- Atelectasis / Collapse
+- Pneumothorax / Pneumomediast.
+- Pleural Effusion
+- Pleural Other
+- Fracture
+- Support Devices
+- Other Finding
 log_dir: ~/speedy_qc/logs
-max_backups: 10
+max_backups: 20
+backup_interval: 2

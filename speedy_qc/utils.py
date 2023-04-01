@@ -72,9 +72,9 @@ def open_yml_file(config_path: str) -> Dict:
     :param config_path: str, the path to the config file.
     :return: dict, the loaded configuration data from the YAML file.
     """
-    print("*"*50)
-    print("Resource directory:", resource_dir)
-    print("*"*50)
+    # print("*"*50)
+    # print("Resource directory:", resource_dir)
+    # print("*"*50)
 
     if not os.path.isfile(config_path):
         # If the config file does not exist, look for the default config file
