@@ -204,7 +204,7 @@ class ConfigurationWizard(QWizard):
         self.backup_int_spinbox.setRange(1, 30)
         self.backup_int_spinbox.setValue(self.backup_interval)
 
-        self.backup_layout.addWidget(QLabel("Backup interval (mins):"))
+        self.backup_layout.addWidget(QLabel("Backup Interval (mins):"))
         self.backup_layout.addWidget(self.backup_int_spinbox)
 
         layout.addWidget(self.backup_widget)
