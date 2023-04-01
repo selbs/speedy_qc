@@ -18,3 +18,4 @@ checkboxes:
 log_dir: ~/speedy_qc/logs
 max_backups: 20
 backup_interval: 2
+tristate_cboxes: true

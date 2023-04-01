@@ -484,7 +484,7 @@ class MainWindow(QMainWindow):
         # Backup progress... just in case...
         self.backup_files = None
         self.timer = QTimer()
-        self.timer.setInterval(self.backup_int * 60 * 1000)  # convert minutes to milliseconds
+        self.timer.setInterval(self.backup_interval * 60 * 1000)  # convert minutes to milliseconds
         self.connection_manager.connect(self.timer.timeout, self.backup_file)
         self.timer.start()
 
