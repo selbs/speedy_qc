@@ -63,6 +63,10 @@ Checkboxes are stored as integers:
 - Moved by clicking and dragging the box. 
 - Deleted by right-clicking on the box and selecting `Remove` from the menu.
 
+### Progress
+
+Your progress through the folder of images is shown in the progress bar at the bottom of the window.
+
 Keyboard Shortcuts
 ------------------
 
