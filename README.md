@@ -12,11 +12,7 @@ Primarily for use on Mac OS X, but should work on Linux and Windows.
 
 ![Screenshot](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/screenshot.png)
 
-<div class=“warning”>
-
-**Warning:** Please note that this application is still in development and there may be unresolved bugs and issues. Use at your own risk!
-
-</div>
+> **Warning:** Please note that this application is still in development and there may be unresolved bugs and issues. Use at your own risk!
 
 Installation
 ------------
