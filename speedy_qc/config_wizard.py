@@ -89,8 +89,8 @@ class ConfigurationWizard(QWizard):
         self.checkboxes = self.config_data.get('checkboxes', [])
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_interval = self.config_data.get('backup_interval', 5)
-        self.backup_dir = self.config_data.get('backup_dir', '~/speedy_qc/backups')
-        self.log_dir = self.config_data.get('log_dir', '~/speedy_qc/logs')
+        self.backup_dir = self.config_data.get('backup_dir', os.path.expanduser('~/speedy_qc/backups'))
+        self.log_dir = self.config_data.get('log_dir', os.path.expanduser('~/speedy_qc/logs'))
 
         # Create pages for the wizard
         self.label_page = self.create_label_page()

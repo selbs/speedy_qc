@@ -50,8 +50,8 @@ def create_default_config() -> Dict:
     default_config = {
         'checkboxes': ['QC1', 'QC2', 'QC3', 'QC4', 'QC5'],
         'max_backups': 10,
-        'backup_dir': '~/speedy_qc/backups',
-        'log_dir': '~/speedy_qc/logs',
+        'backup_dir': os.path.expanduser('~/speedy_qc/backups'),
+        'log_dir': os.path.expanduser('~/speedy_qc/logs'),
         'tristate_checkboxes': True,
         'backup_interval': 5,
     }

@@ -346,6 +346,8 @@ class MainWindow(QMainWindow):
         self.tristate_cboxes = bool(config['tristate_cboxes'])
         self.max_backups = config['max_backups']
         self.backup_dir = config['backup_dir']
+        if "~" in self.backup_dir:
+            self.backup_dir = os.path.expanduser(self.backup_dir)
         self.backup_interval = config['backup_interval']
 
         # Initialize dictionaries for outputs
