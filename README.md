@@ -128,7 +128,7 @@ Executable Application
 ----------------------
 
 The executable application may be downloaded from:
-- Mac OS X:  [add link](https://github.com/selbs/speedy_qc/releases/tag/v0.1.2). 
+- Mac OS X:  https://github.com/selbs/speedy_qc/releases/tag/v0.1.2
   - Universal binary for both 86x64 (*Intel*) and arm64 (*Apple Silicon*) Macs. 
 - Windows: [add link](https://www.example_link.com)
 
