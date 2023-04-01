@@ -66,21 +66,21 @@ Checkboxes are stored as integers:
 Keyboard Shortcuts
 ------------------
 
-|       Key        | Action             |
-|:----------------:|--------------------|
-|        B         | Previous image     |
-|        N         | Next image         |
-|      + / =       | Zoom in            |
-|      - / _       | Zoom out           |
-|        I         | Invert grayscale   |
-|        R         | Rotate image right |
-|        L         | Rotate image left  |
-|        S         | Save to CSV        |
-|   Cmd/Ctrl + Q   | Quit               |
-|   Cmd + Scroll   | Window Width       |
-|  Shift + Scroll  | Window Center      |
+|                      Key                      | Action             |
+|:---------------------------------------------:|--------------------|
+|                 <kbd>B</kbd>                  | Previous image     |
+|                 <kbd>N</kbd>                  | Next image         |
+|          <kbd>+</kbd> / <kbd>=</kbd>          | Zoom in            |
+|          <kbd>-</kbd> / <kbd>_</kbd>          | Zoom out           |
+|                 <kbd>I</kbd>                  | Invert grayscale   |
+|                 <kbd>R</kbd>                  | Rotate image right |
+|                 <kbd>L</kbd>                  | Rotate image left  |
+|                 <kbd>S</kbd>                  | Save to CSV        |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit               |
+|            <kbd>Cmd</kbd> + Scroll            | Window Width       |
+|           <kbd>Shift</kbd> + Scroll           | Window Center      |
 
-Note: Cmd + Scroll and Shift + Scroll are only currently available on Mac OS X.
+Note: <kbd>Cmd</kbd> + Scroll and <kbd>Shift</kbd> + Scroll are only currently available on Mac OS X.
 
 Customisation
 -------------
@@ -89,6 +89,7 @@ The program can be customised to suit the user's needs. The following options ar
 - Select which checkboxes are required
 - Select whether checkboxes can be set to 'uncertain' (i.e. 1 - see above)
 - Change the maximum number of backups
+- Backup frequency in minutes
 - Change the backup directory
 - Change the log directory
 
@@ -113,9 +114,10 @@ right-clicking on the executable and selecting `Show Package Contents`.
 Backup Files
 ------------
 
-Work is automatically backed up every 10 minutes. By default, the backups are stored in the user's home 
-directory (`~`) in the folder `~/speedy_qc/backups` and up to the latest ten backups are stored.
-The number of backups and the backup directory can be customised in the configuration wizard or the `config.yml` file.
+Work is automatically backed up every 5 minutes, but this interval can be customised. By default, the backups are 
+stored in the user's home directory (`~`) in the folder `~/speedy_qc/backups` and up to the latest ten backups are 
+stored. The number of backups, the backup interval and the backup directory can be customised in the configuration 
+wizard or the `config.yml` file.
 
 
 Executable Application
