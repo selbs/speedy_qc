@@ -457,6 +457,8 @@ class SetupWindow(QDialog):
         if self.new_json_tickbox.isChecked():
             super().accept()
         elif self.check_json_compatibility(self.json_label.text()):
+            super().accept()
+        elif not self.check_json_compatibility(self.json_label.text()):
             # Prevent the dialog from closing
             self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
             return
@@ -472,13 +474,17 @@ class SetupWindow(QDialog):
         When the new json checkbox is ticked, disable the json file dialog button and clear the json label.
         """
         if self.sender().isChecked():
-            self.json_button.setEnabled(False)
+            self.json_button.setEnabled(True)
             self.json_label.setText("")
             self.settings.setValue("new_json", True)
         else:
-            self.json_button.setEnabled(True)
             self.json_label.setText(self.settings.value("json_path", ""))
             self.settings.setValue("new_json", False)
+            self.json_button.setEnabled(True)
+            if not self.check_json_compatibility(self.json_label.text()):
+                self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+            else:
+                self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def load_saved_files(self, settings):
         """
@@ -519,6 +525,7 @@ class SetupWindow(QDialog):
         if json_path:
             self.json_label.setText(json_path)
             self.save_file_paths(self.settings, json_path, self.folder_label.text())
+            self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
 
     def select_dcm_folder(self):
         """
@@ -627,7 +634,9 @@ class SetupWindow(QDialog):
         config_compatible = self.check_config_json_compatibility(cboxes, cbox_values)
         dcm_compatible = self.check_json_dicom_compatibility(filenames)
         if dcm_compatible and config_compatible:
+            self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
             return True
+        self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
         return False
 
     def closeEvent(self, event: QCloseEvent):
