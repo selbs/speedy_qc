@@ -1104,8 +1104,6 @@ class MainWindow(QMainWindow):
 
     def load_from_json(self) -> bool:
 
-        print(self.settings.value("new_json"))
-
         if self.settings.value("new_json", False):
             return False
         else:
@@ -1130,7 +1128,7 @@ class MainWindow(QMainWindow):
                     for finding, coord_sets in entry['bboxes'].items():
                         for coord_set in coord_sets:
                             self.load_bounding_box(filename, finding, coord_set)
-                return True
+            return True
 
     def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
         """
@@ -1159,7 +1157,7 @@ class MainWindow(QMainWindow):
         filename = self.file_list[self.current_index]
         cbox = self.sender().text()
         self.checkbox_values[filename][cbox] = state
-        self.settings.setValue(filename, state)
+        # self.settings.setValue(filename, state)
 
         if state:
             self.image_view.setDragMode(QGraphicsView.DragMode.NoDrag)
