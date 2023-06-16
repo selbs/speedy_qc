@@ -435,10 +435,12 @@ class SetupWindow(QDialog):
             # Set tickbox to ticked and inactivate load json button
             self.new_json_tickbox.setChecked(2)
             self.json_button.setEnabled(False)
+            self.settings.setValue("new_json", True)
         else:
             # Set tickbox to unticked and activate load json button
             self.new_json_tickbox.setChecked(0)
             self.json_button.setEnabled(True)
+            self.settings.setValue("new_json", False)
 
 
         # Connect buttons to functions

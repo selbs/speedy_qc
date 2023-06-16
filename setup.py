@@ -27,7 +27,7 @@ setup(
         "numpy>=1.24.2",
         "py2app>=0.28.5",
         "pydicom>=2.3.1",
-        "PyQt6>=6.4.2",
+        "PyQt6>=6.2",
         "PyYAML>=6.0",
         "qimage2ndarray>=1.10.0",
         "qt_material>=2.14",

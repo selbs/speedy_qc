@@ -42,7 +42,7 @@ setup(
         "pylibjpeg==1.4.0",
         "numpy>=1.21.0",
         "setuptools>=42.0.0",
-        "PyQt6>=6.4.2",
+        "PyQt6>=6.2",
         "python-gdcm>=3.0.21",
         "PyYAML>=6.0",
         "qimage2ndarray>=1.10.0",
