@@ -38,7 +38,7 @@ setup(
         "install>=1.3.5",
         "pandas>=1.5.3",
         "pip>=23.0.1",
-        "pydicom==2.3.1",
+        "pydicom>=2.3.1",
         "pylibjpeg==1.4.0",
         "numpy>=1.21.0",
         "setuptools>=42.0.0",

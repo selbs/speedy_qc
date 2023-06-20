@@ -552,7 +552,7 @@ class MainWindow(QMainWindow):
         os.makedirs(backup_folder_path, exist_ok=True)
 
         if self.backup_files is None:
-            self.backup_files = backup_folder_path
+            self.backup_files = []
 
         # Get the current time as a string
         current_time_str = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
