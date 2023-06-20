@@ -182,6 +182,9 @@ To create a universal binary for the 86x64 and arm64 executables, use the follow
 ```bash
 mkdir -p "dist/universal/Speedy QC.app/"
 cp -R "dist/arm64/Speedy QC.app/" "dist/universal/Speedy QC.app/"
+rm -rf "dist/universal/Speedy QC.app/Contents/MacOS/Speedy QC"
+rm -rf "dist/universal/Speedy QC.app/Contents/MacOS/Python"
+lipo -create -output "dist/universal/Speedy QC.app/Contents/MacOS/Speedy QC" "dist/arm64/Speedy QC.app/Contents/MacOS/Speedy QC" "dist/86x64/Speedy QC.app/Contents/MacOS/Speedy QC"
 lipo -create -output "dist/universal/Speedy QC.app/Contents/MacOS/Python" "dist/arm64/Speedy QC.app/Contents/MacOS/Python" "dist/86x64/Speedy QC.app/Contents/MacOS/Python"
 ```
 
