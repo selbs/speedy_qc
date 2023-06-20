@@ -91,6 +91,7 @@ class ConfigurationWizard(QWizard):
         self.backup_interval = self.config_data.get('backup_interval', 5)
         self.backup_dir = self.config_data.get('backup_dir', os.path.expanduser('~/speedy_qc/backups'))
         self.log_dir = self.config_data.get('log_dir', os.path.expanduser('~/speedy_qc/logs'))
+        self.tristate_cboxes = self.config_data.get('tristate_checkboxes', False)
 
         # Create pages for the wizard
         self.label_page = self.create_label_page()
