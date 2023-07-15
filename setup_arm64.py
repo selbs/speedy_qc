@@ -25,7 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
-            'speedy_config=speedy_qc.config_wizard:main'
+            'speedy_config=speedy_qc.wizard:main'
         ]
     },
     classifiers=[
@@ -50,6 +50,7 @@ setup(
         "qimage2ndarray>=1.10.0",
         "qt-material>=2.14",
         "QtAwesome>=1.2.3",
-        "matplotlib>=3.4.3"
+        "matplotlib>=3.4.3",
+        "imageio>=2.31.0",
     ],
 )

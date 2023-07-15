@@ -14,6 +14,21 @@ Primarily for use on Mac OS X, but should work on Linux and Windows.
 
 > **Warning:** Please note that this application is still in development and there may be unresolved bugs and issues. Use at your own risk!
 
+## Table of Contents
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Inputs and Outputs](#inputs-and-outputs)
+    - [Checkboxes](#checkboxes)
+    - [Bounding Boxes](#bounding-boxes)
+    - [Radiobuttons](#radiobuttons)
+  - [Progress](#progress)
+  - [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Customisation](#customisation)
+  - [Configuration Wizard](#configuration-wizard)
+  - [YAML File](#yaml-file)
+- [Backup Files](#backup-files)
+- [Executable Application](#executable-application)
+
 Installation
 ------------
 
@@ -45,9 +60,9 @@ speedy_qc
 
 Alternatively, the app may be run from an executable (see below).
 
-### Outputs
+### Inputs and Outputs
 
-Outputs are stored in a .json file in a directory chosen by the user.
+#### Checkboxes
 
 Checkboxes are stored as integers:  
 
@@ -57,7 +72,7 @@ Checkboxes are stored as integers:
 |        1        |  Uncertain  |
 |        2        | True / Yes  |
 
-### Bounding Boxes
+#### Bounding Boxes
 
 - Added to the image by clicking and dragging the mouse.
 - Multiple boxes may be added to each image and for each finding.
@@ -65,12 +80,17 @@ Checkboxes are stored as integers:
 - Moved by clicking and dragging the box. 
 - Deleted by right-clicking on the box and selecting `Remove` from the menu.
 
+#### Radiobuttons
+
+Radiobuttons are stored as integers with the meaning of the integer corresponding to the order of the radiobuttons
+inputted in the configuration wizard. For example, if the radiobuttons are `['Normal', 'Abnormal']`, then the values
+will be `0` for `Normal` and `1` for `Abnormal`.
+
 ### Progress
 
 Your progress through the folder of images is shown in the progress bar at the bottom of the window.
 
-Keyboard Shortcuts
-------------------
+### Keyboard Shortcuts
 
 |                      Key                      |       Action       |
 |:---------------------------------------------:|:------------------:|
@@ -94,6 +114,7 @@ Customisation
 The program can be customised to suit the user's needs. The following options are available:
 - Select which checkboxes are required
 - Select whether checkboxes can be set to 'uncertain' (i.e. 1 - see above)
+- Select whether radiobuttons are required
 - Change the maximum number of backups
 - Backup frequency in minutes
 - Change the backup directory

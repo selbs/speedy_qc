@@ -1,0 +1,35 @@
+backup_dir: /Users/ianselby/speedy_qc/backups
+backup_interval: 5
+log_dir: /Users/ianselby/speedy_qc/logs
+max_backups: 10
+radiobuttons:
+- labels:
+  - Very poor
+  - Poor
+  - Good
+  - Very good
+  title: Overall Quality
+- labels:
+  - Underexposed
+  - Good
+  - Overexposed
+  title: Exposure
+- labels:
+  - Very low
+  - Low
+  - Good
+  - High
+  title: Contrast
+- labels:
+  - None
+  - Mild
+  - Moderate
+  - Severe
+  title: Blur
+- labels:
+  - None
+  - Mild
+  - Moderate
+  - Severe
+  title: Artefacts
+tristate_checkboxes: true

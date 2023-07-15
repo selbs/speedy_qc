@@ -1,0 +1,21 @@
+backup_dir: /Users/ianselby/speedy_qc/backups
+backup_interval: 5
+checkboxes:
+- No Finding
+- Enlarged Cardiomediastinum
+- Cardiomegaly
+- Lung Lesion (Mass/Nodule)
+- Airspace Opacity
+- Edema
+- Consolidation
+- Pneumonia
+- Atelectasis / Collapse
+- Pneumothorax / Pneumomediast.
+- Pleural Effusion
+- Pleural Other
+- Fracture
+- Support Devices
+- Other Finding
+log_dir: /Users/ianselby/speedy_qc/logs
+max_backups: 10
+tristate_checkboxes: true

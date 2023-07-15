@@ -10,26 +10,25 @@ This module provides utility functions and classes to support the speedy_qc appl
 3. Logging setup.
 4. Connection management for signals and slots in a Qt application.
 
+Classes:
+    Connection
+    ConnectionManager
+
 Functions:
     create_default_config() -> dict
     open_yml_file(config_path: str) -> dict
     setup_logging(log_out_path: str) -> Tuple[logging.Logger, logging.Logger]
-
-Classes:
-    Connection
-    ConnectionManager
+    bytescale(data: np.ndarray, cmin: int = None, cmax: int = None, high: int = 255, low: int = 0) -> np.ndarray
+    convert_to_checkstate(value: Any) -> Qt.CheckState
 """
 
 import logging.config
 import yaml
 import os
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, Optional
 from PyQt6.QtCore import *
-from PyQt6.QtGui import *
-from PyQt6.QtWidgets import *
 import sys
-from qt_material import get_theme
-
+import numpy as np
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -40,6 +39,50 @@ elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
 else:
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
+
+class Connection:
+    """
+    A class to manage a single connection between a signal and a slot in a Qt application.
+    """
+    def __init__(self, signal: pyqtSignal, slot: callable):
+        self.signal = signal
+        self.slot = slot
+        self.connection = self.signal.connect(self.slot)
+
+    def disconnect(self):
+        """
+        Disconnects the signal from the slot.
+        """
+        self.signal.disconnect(self.slot)
+
+
+class ConnectionManager:
+    """
+    A class to manage multiple connections between signals and slots in a Qt application.
+    """
+    def __init__(self):
+        self.connections = {}
+
+    def connect(self, signal: Any, slot: callable):
+        """
+        Connects a signal to a slot and stores the connection in a dictionary.
+
+        :param signal: QtCore.pyqtSignal, the signal to connect.
+        :param slot: callable, the slot (function or method) to connect to the signal.
+        """
+        connection = Connection(signal, slot)
+        self.connections[id(connection)] = connection
+
+    def disconnect_all(self):
+        """
+        Disconnects all connections and clears the dictionary.
+        """
+        for connection in self.connections.values():
+            if isinstance(connection, Connection):
+                connection.disconnect()
+        self.connections = {}
+
+
 def create_default_config() -> Dict:
     """
     Creates a default config file in the speedy_qc directory.
@@ -49,6 +92,7 @@ def create_default_config() -> Dict:
     # Default config...
     default_config = {
         'checkboxes': ['QC1', 'QC2', 'QC3', 'QC4', 'QC5'],
+        'radiobuttons': [{'title': "Radiobuttons", 'labels': [1, 2, 3, 4]}, ],
         'max_backups': 10,
         'backup_dir': os.path.expanduser('~/speedy_qc/backups'),
         'log_dir': os.path.expanduser('~/speedy_qc/logs'),
@@ -63,6 +107,7 @@ def create_default_config() -> Dict:
         yaml.dump(default_config, f)
 
     return default_config
+
 
 def open_yml_file(config_path: str) -> Dict:
     """
@@ -115,45 +160,63 @@ def setup_logging(log_out_path: str) -> Tuple[logging.Logger, logging.Logger]:
     console_msg = logging.getLogger(__name__)
     return logger, console_msg
 
-class Connection:
+
+def bytescale(
+        arr: np.ndarray,
+        low: Optional[float] = None,
+        high: Optional[float] = None,
+        a: float = 0,
+        b: float = 255
+) -> np.ndarray:
     """
-    A class to manage a single connection between a signal and a slot in a Qt application.
+    Linearly rescale values in an array. By default, it scales the values to the byte range (0-255).
+
+    :param arr: The array to rescale.
+    :type arr: np.ndarray
+    :param low: Lower boundary of the output interval. All values smaller than low are clipped to low.
+    :type low: float
+    :param high: Upper boundary of the output interval. All values larger than high are clipped to high.
+    :type high: float
+    :param a: Lower boundary of the input interval.
+    :type a: float
+    :param b: Upper boundary of the input interval.
+    :type b: float
+    :return: The rescaled array.
+    :rtype: np.ndarray
     """
-    def __init__(self, signal: pyqtSignal, slot: callable):
-        self.signal = signal
-        self.slot = slot
-        self.connection = self.signal.connect(self.slot)
 
-    def disconnect(self):
-        """
-        Disconnects the signal from the slot.
-        """
-        self.signal.disconnect(self.slot)
+    arr = arr.astype(float)  # to ensure floating point division
+
+    # Clip to specified high/low values, if any
+    if low is not None:
+        arr = np.maximum(arr, low)
+    if high is not None:
+        arr = np.minimum(arr, high)
+
+    min_val, max_val = np.min(arr), np.max(arr)
+
+    if np.isclose(min_val, max_val):  # avoid division by zero
+        return np.full_like(arr, a, dtype=np.uint8)
+
+    # Normalize between a and b
+    return (((b - a) * (arr - min_val) / (max_val - min_val)) + a).astype(np.uint8)
 
 
-class ConnectionManager:
+def convert_to_checkstate(value: int) -> Qt.CheckState:
     """
-    A class to manage multiple connections between signals and slots in a Qt application.
+    Converts an integer value to a Qt.CheckState value for tri-state checkboxes.
+
+    :param value: int, the value to convert.
+    :type: int
+    :return: The converted value.
+    :rtype: Qt.CheckState
     """
-    def __init__(self):
-        self.connections = {}
-
-    def connect(self, signal: Any, slot: callable):
-        """
-        Connects a signal to a slot and stores the connection in a dictionary.
-
-        :param signal: QtCore.pyqtSignal, the signal to connect.
-        :param slot: callable, the slot (function or method) to connect to the signal.
-        """
-        connection = Connection(signal, slot)
-        self.connections[id(connection)] = connection
-
-    def disconnect_all(self):
-        """
-        Disconnects all connections and clears the dictionary.
-        """
-        for connection in self.connections.values():
-            if isinstance(connection, Connection):
-                connection.disconnect()
-        self.connections = {}
-
+    if value == 0:
+        return Qt.CheckState.Unchecked
+    elif value == 1:
+        return Qt.CheckState.PartiallyChecked
+    elif value == 2:
+        return Qt.CheckState.Checked
+    else:
+        # Handle invalid values or default case
+        return Qt.CheckState.Unchecked

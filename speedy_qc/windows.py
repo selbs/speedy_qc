@@ -1,5 +1,5 @@
 """
-custom_windows.py
+windows.py
 
 This module contains custom QDialog classes used for displaying specific dialogs in the application.
 These dialogs include the initial dialog box for loading a configuration file and the 'About' dialog box
@@ -9,7 +9,7 @@ Classes:
     - LoadMessageBox: A custom QDialog for selecting a configuration file when launching the application.
     - AboutMessageBox: A custom QDialog for displaying information about the application and its license.
     - SetupWindow: A custom QDialog for displaying the setup window when the application is first launched to allow
-                            the user to select the dicom directory and decide whether to continue previous progress by
+                            the user to select the image directory and decide whether to continue previous progress by
                              loading an existing json file.
 
 Functions:
@@ -17,11 +17,10 @@ Functions:
 """
 
 import os
-import logging
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
-from typing import Optional
+from typing import Optional, List
 import sys
 import json
 
@@ -41,7 +40,6 @@ config_file = outer_setting.value("last_config_file", os.path.join(resource_dir,
 config_data = open_yml_file(os.path.join(resource_dir, config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
-
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
@@ -51,15 +49,20 @@ elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
 else:
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
+
 class AboutMessageBox(QDialog):
     """
     A custom QDialog for displaying information about the application from the About option in the menu.
+
+    :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+    :type parent: QWidget or None
     """
     def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the AboutMessageBox.
 
         :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+        :type parent: QWidget or None
         """
         super().__init__(parent)
         # self.connections = {}
@@ -164,12 +167,16 @@ class LoadMessageBox(QDialog):
     The initial dialog box that appears when the application is launched. This dialog box allows
     the user to select the config file to load into the application and allows them to launch the
     configuration wizard to customise Speedy QC.
+
+    :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+    :type parent: QWidget or None
     """
     def __init__(self, parent: Optional[QWidget] = None):
         """
         Initialize the LoadMessageBox.
 
         :param parent: QWidget or None, the parent widget of this QDialog (default: None).
+        :type parent: QWidget or None
         """
         super().__init__(parent)
         # self.connections = {}
@@ -252,7 +259,7 @@ class LoadMessageBox(QDialog):
         right_layout.addItem(spacer)
 
         # Create a QLabel to display a prompt to the user for the following dialog
-        sub_text2 = QLabel("In the next window, please select a directory to\nload the DICOM files...")
+        sub_text2 = QLabel("In the next window, please select a directory to\nload the image files...")
         sub_text2.setStyleSheet("font-size: 14px;")
         sub_text2.setAlignment(Qt.AlignmentFlag.AlignTop)
         right_layout.addWidget(sub_text2)
@@ -302,8 +309,9 @@ class LoadMessageBox(QDialog):
         """
         Overwrite the exec method to return a custom return code for the configuration wizard.
 
-        :return: int, 1 if the user clicks "OK", 0 if the user clicks "Cancel", 42 if the user
-                                clicks "Configuration Wizard"
+        :return: 1 if the user clicks "OK", 0 if the user clicks "Cancel", 42 if the user
+            clicks "Configuration Wizard"
+        :rtype: int
         """
         result = super().exec()
         try:
@@ -313,17 +321,44 @@ class LoadMessageBox(QDialog):
                 return 1
             else:
                 return 0
-    def save_last_config(self, config_file: str):
+
+    def save_last_config(self, conf_name: str):
         """
         Save the selected config file to QSettings
+
+        :param conf_name: The name of the selected config file
+        :type conf_name: str
         """
         # Save the selected config file to QSettings
-        print(f"Selected config file: {config_file}")
-        self.settings.setValue("last_config_file", os.path.join(resource_dir, config_file))
+        print(f"Selected config file: {conf_name}")
+        self.settings.setValue("last_config_file", os.path.join(resource_dir, conf_name))
+
+    def closeEvent(self, event: QCloseEvent):
+        """
+        Handles a close event and disconnects connections between signals and slots.
+
+        :param event: The close event
+        :type event: QCloseEvent
+        """
+        self.connection_manager.disconnect_all()
+        event.accept()
 
 
 class SetupWindow(QDialog):
-    def __init__(self, settings):
+    """
+    A QDialog window for setting up Speedy QC for Desktop, including chosing a directory of images to load and
+    selecting a json file to continue previous labelling.
+
+    :param settings: A QSettings object for storing settings
+    :type settings: QSettings
+    """
+    def __init__(self, settings: QSettings):
+        """
+        Initialise the SetupWindow.
+
+        :param settings: A QSettings object for storing settings
+        :type settings: QSettings
+        """
         super().__init__()
 
         # Set up UI elements
@@ -331,7 +366,7 @@ class SetupWindow(QDialog):
         self.connection_manager = ConnectionManager()
         self.folder_label = QLabel()
         self.json_label = QLabel()
-        self.folder_label.setText(self.settings.value("dicom_path", ""))
+        self.folder_label.setText(self.settings.value("image_path", ""))
         self.json_label.setText(self.settings.value("json_path", ""))
         self.folder_button = QPushButton("...")
         self.json_button = QPushButton("...")
@@ -377,14 +412,14 @@ class SetupWindow(QDialog):
         layout.addSpacerItem(expanding_spacer)
 
         dcm_layout = QVBoxLayout()
-        dcm_info_label = QLabel("Please select the folder containing the DICOM images:")
+        dcm_info_label = QLabel("Please select the folder containing the images:")
         dcm_info_label.setStyleSheet("font-weight: bold;")
         dcm_layout.addWidget(dcm_info_label)
 
         dcm_layout.addSpacerItem(fixed_spacer)
 
         dcm_selection_layout = QHBoxLayout()
-        dcm_selection_layout.addWidget(QLabel("Selected DICOM Folder:"))
+        dcm_selection_layout.addWidget(QLabel("Selected Image Folder:"))
         dcm_selection_layout.addSpacerItem(expanding_spacer)
         dcm_selection_layout.addWidget(self.folder_label)
         dcm_selection_layout.addWidget(self.folder_button)
@@ -445,7 +480,7 @@ class SetupWindow(QDialog):
 
         # Connect buttons to functions
         self.connection_manager.connect(self.json_button.clicked, self.select_json)
-        self.connection_manager.connect(self.folder_button.clicked, self.select_dcm_folder)
+        self.connection_manager.connect(self.folder_button.clicked, self.select_image_folder)
         self.connection_manager.connect(self.new_json_tickbox.stateChanged, self.on_json_checkbox_changed)
 
 
@@ -458,7 +493,7 @@ class SetupWindow(QDialog):
         """
 
         if not os.path.isdir(self.folder_label.text()):
-            self.generate_no_dcm_msg()
+            self.generate_no_image_msg()
             self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
             return
         elif self.new_json_tickbox.isChecked():
@@ -494,15 +529,16 @@ class SetupWindow(QDialog):
             else:
                 self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
 
-    def load_saved_files(self, settings):
+    def load_saved_files(self, settings: QSettings):
         """
         Load previously selected files from QSettings.
 
         :param settings: QSettings object
+        :type settings: QSettings
         """
         # Get saved file paths from QSettings
         json_path = settings.value("json_path", "")
-        folder_path = settings.value("dicom_path", "")
+        folder_path = settings.value("image_path", "")
 
         # Update labels with saved file paths
         if json_path:
@@ -510,17 +546,20 @@ class SetupWindow(QDialog):
         if folder_path:
             self.folder_label.setText(folder_path)
 
-    def save_file_paths(self, settings, json_path, folder_path):
+    def save_file_paths(self, settings: str, json_path: str, folder_path: str):
         """
         Update QSettings
 
         :param settings: QSettings object to update
+        :type settings: QSettings
         :param json_path: Path to JSON file
-        :param folder_path: Path to DICOM folder
+        :type json_path: str
+        :param folder_path: Path to image folder
+        :type folder_path: str
         """
         # Save file paths to QSettings
         settings.setValue("json_path", json_path)
-        settings.setValue("dicom_path", folder_path)
+        settings.setValue("image_path", folder_path)
 
     def select_json(self):
         """
@@ -535,29 +574,31 @@ class SetupWindow(QDialog):
             self.save_file_paths(self.settings, json_path, self.folder_label.text())
             self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
 
-    def select_dcm_folder(self):
+    def select_image_folder(self):
         """
-        Open file dialog to select DICOM folder. Only accept if directory contains a dicom file.
+        Open file dialog to select image folder. Only accept if directory contains an image file.
         """
-        dicom_dir = None
-        while dicom_dir is None:
+        image_dir = None
+        while image_dir is None:
             # Open file dialog to select image folder
-            folder_path = QFileDialog.getExistingDirectory(self, "Select DICOM Folder", self.folder_label.text())
+            folder_path = QFileDialog.getExistingDirectory(self, "Select Image Folder", self.folder_label.text())
 
             # Update label and save file path
             if folder_path:
-                dcm_files = [f for f in os.listdir(folder_path) if f.endswith('.dcm')]
-                if len(dcm_files) == 0:
+                img_files = [f for f in os.listdir(folder_path) if f.endswith((
+                    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.dcm', '.dicom',
+                ))]
+                if len(img_files) == 0:
                     error_msg_box = QMessageBox()
                     error_msg_box.setIcon(QMessageBox.Icon.Warning)
                     error_msg_box.setWindowTitle("Error")
-                    error_msg_box.setText("The directory does not appear to contain any dicom files!")
+                    error_msg_box.setText("The directory does not appear to contain any image files!")
                     error_msg_box.setInformativeText("Please try again.")
                     error_msg_box.exec()
                 else:
                     self.folder_label.setText(folder_path)
                     self.save_file_paths(self.settings, self.json_label.text(), folder_path)
-                    dicom_dir = folder_path
+                    image_dir = folder_path
                     self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
                     if not self.new_json_tickbox.isChecked():
                         self.check_json_compatibility(self.json_label.text())
@@ -586,43 +627,65 @@ class SetupWindow(QDialog):
         QMessageBox.critical(self,
                              "Error",
                              f"JSON - CONFIG FILE CONFLICT!\n\n"
-                             f"The selected json file has checkbox names which are not in the config file.\n\n"
+                             f"The selected json file has checkbox name/s which are not in the config file.\n\n"
                              f"Please select a new json file or start again and select a new config file. ",
                              QMessageBox.StandardButton.Ok,
                              defaultButton=QMessageBox.StandardButton.Ok)
 
-    def generate_json_dcm_incompatibility_msg(self):
+    def generate_json_rb_incompatibility_msg(self):
         """
-        Generate a message box to inform the user that the selected json file is incompatible with the DICOM folder
-        as it contains DICOM filenames which are not present in the folder.
+        Generate a message box to inform the user that the selected json file is incompatible with the config file
+        due to different checkbox names.
         """
         QMessageBox.critical(self,
                              "Error",
-                             f"JSON - DICOM FOLDER CONFLICT!\n\n"
-                             f"The selected json file has image files which are not present in the selected DICOM "
+                             f"JSON - CONFIG FILE CONFLICT!\n\n"
+                             f"The selected json file has radiobutton group/s which are not in the config file.\n\n"
+                             f"Please select a new json file or start again and select a new config file. ",
+                             QMessageBox.StandardButton.Ok,
+                             defaultButton=QMessageBox.StandardButton.Ok)
+
+    def generate_json_image_incompatibility_msg(self):
+        """
+        Generate a message box to inform the user that the selected json file is incompatible with the image folder
+        as it contains image filenames which are not present in the folder.
+        """
+        QMessageBox.critical(self,
+                             "Error",
+                             f"JSON - IMAGE FOLDER CONFLICT!\n\n"
+                             f"The selected json file has image files which are not present in the selected image "
                              f"directory.\n\n"
-                             f"Please select a new json file or DICOM directory. Alternatively, start again and select "
+                             f"Please select a new json file or image directory. Alternatively, start again and select "
                              f"a new config file. ",
                              QMessageBox.StandardButton.Ok,
                              defaultButton=QMessageBox.StandardButton.Ok)
 
-    def generate_no_dcm_msg(self):
+    def generate_no_image_msg(self):
         """
         Generate a message box to inform the user that no dcm folder is selected.
         """
         QMessageBox.critical(self,
                              "Error",
-                             f"NO DICOM DIRECTORY SELECTED!\n\n"
-                             f"Please select a dicom directory or start again and select a new config file. ",
+                             f"NO IMAGE DIRECTORY SELECTED!\n\n"
+                             f"Please select an image directory or start again and select a new config file. ",
                              QMessageBox.StandardButton.Ok,
                              defaultButton=QMessageBox.StandardButton.Ok)
 
-    def check_config_json_compatibility(self, cboxes, cbox_values):
+    def check_config_json_compatibility(self, cboxes: List[str], cbox_values: List[int], rbs: [str]) -> bool:
         """
         Check if the selected json file is compatible with the config file.
+
+        :param cboxes: list of checkbox names
+        :type cboxes: list
+        :param cbox_values: list of checkbox values
+        :type cbox_values: list
+        :param rbs: list of radiobutton group names
+        :type rbs: list
+        :return: True if compatible, False otherwise
+        :rtype: bool
         """
 
-        if not self.config['tristate_cboxes']:
+        if not self.config['tristate_checkboxes']:
             if 1 in cbox_values:
                 self.generate_json_tristate_incompatibility_msg()
                 return False
@@ -632,36 +695,54 @@ class SetupWindow(QDialog):
                 self.generate_json_cbox_incompatibility_msg()
                 return False
 
+        config_rb_names = [group['title'] for group in self.config['radiobuttons']]
+        for rb in rbs:
+            if rb not in config_rb_names:
+                self.generate_json_rb_incompatibility_msg()
+                return False
+
         return True
 
-    def check_json_dicom_compatibility(self, filenames):
+    def check_json_image_compatibility(self, filenames: List[str]) -> bool:
         """
-        Check if the selected json file is compatible with the DICOM folder.
+        Check if the selected json file is compatible with the image folder.
+
+        :param filenames: list of image filenames in the json file
+        :type filenames: list
+        :return: True if compatible, False otherwise
+        :rtype: bool
         """
         if os.path.isdir(self.folder_label.text()):
-            dcms = os.listdir(self.folder_label.text())
+            imgs = sorted([f for f in os.listdir(self.folder_label.text()) if f.endswith((
+                    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.dcm', '.dicom',
+                ))])
 
             # Get list of dcms in json
             for file in filenames:
-                if file not in dcms:
-                    self.generate_json_dcm_incompatibility_msg()
+                if file not in imgs:
+                    self.generate_json_image_incompatibility_msg()
                     return False
 
             return True
         else:
-            self.generate_no_dcm_msg()
+            self.generate_no_image_msg()
             return False
 
-    def check_json_compatibility(self, json_path):
+    def check_json_compatibility(self, json_path: str) -> bool:
         """
-        Check if the selected json file is compatible with the DICOM files in the image directory and the selected
+        Check if the selected json file is compatible with the image files in the image directory and the selected
         config yml file. This prevents the program from crashing if incompatible files are selected.
+
+        :param json_path: path to the json file
+        :type json_path: str
+        :return: True if compatible, False otherwise
+        :rtype: bool
         """
         if os.path.isfile(json_path):
-            filenames, cboxes, cbox_values = load_json_filenames_findings(json_path)
-            dcm_compatible = self.check_json_dicom_compatibility(filenames)
+            filenames, cboxes, cbox_values, rbs = load_json_filenames_findings(json_path)
+            dcm_compatible = self.check_json_image_compatibility(filenames)
             if dcm_compatible:
-                config_compatible = self.check_config_json_compatibility(cboxes, cbox_values)
+                config_compatible = self.check_config_json_compatibility(cboxes, cbox_values, rbs)
                 if config_compatible:
                     self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
                     return True
@@ -675,13 +756,20 @@ class SetupWindow(QDialog):
     def closeEvent(self, event: QCloseEvent):
         """
         Handles a close event and disconnects connections between signals and slots.
+
+        :param event: close event
+        :type event: QCloseEvent
         """
         self.connection_manager.disconnect_all()
         event.accept()
 
-def load_json_filenames_findings(json_path):
+
+def load_json_filenames_findings(json_path: str):
     """
     Load the filenames and findings from a json file.
+
+    :param json_path: path to the json file
+    :type json_path: str
     """
 
     with open(json_path, 'r') as file:
@@ -690,7 +778,10 @@ def load_json_filenames_findings(json_path):
     filenames = [entry['filename'] for entry in data]
     cboxes = [cbox for entry in data if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
     cbox_values = [value for entry in data if 'checkboxes' in entry for value in entry['checkboxes'].values()]
+    radiobs = [rb for entry in data if 'radiobuttons' in entry for rb in entry['radiobuttons'].keys()]
+
     unique_cboxes = sorted(list(set(cboxes)))
     unique_cbox_values = sorted(list(set(cbox_values)))
+    unique_radiobs = sorted(list(set(radiobs)))
 
-    return filenames, unique_cboxes, unique_cbox_values
+    return filenames, unique_cboxes, unique_cbox_values, unique_radiobs

@@ -26,9 +26,9 @@ from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from qt_material import apply_stylesheet
 
-from speedy_qc.main_window import MainWindow
-from speedy_qc.config_wizard import ConfigurationWizard
-from speedy_qc.custom_windows import LoadMessageBox, SetupWindow
+from speedy_qc.main_app import MainApp
+from speedy_qc.wizard import ConfigurationWizard
+from speedy_qc.windows import LoadMessageBox, SetupWindow
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -38,8 +38,6 @@ elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
 else:
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
-
-
 
 
 def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawesome'):
@@ -62,6 +60,44 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
         QIcon class.
     """
 
+    def cleanup():
+        # Cleanup load intro window
+        try:
+            # This might raise an exception if setup_window was never created,
+            # so we catch the exception and ignore it.
+            load_msg_box.close()
+            load_msg_box.deleteLater()
+        except NameError:
+            pass
+
+        # Cleanup main window
+        try:
+            # This might raise an exception if setup_window was never created,
+            # so we catch the exception and ignore it.
+            window.close()
+            window.deleteLater()
+        except NameError:
+            pass
+
+        # Cleanup setup window
+        try:
+            # This might raise an exception if setup_window was never created,
+            # so we catch the exception and ignore it.
+            setup_window.close()
+            setup_window.deleteLater()
+        except NameError:
+            pass
+
+        # Cleanup wizard
+        try:
+            # This might raise an exception if wizard was never created,
+            # so we catch the exception and ignore it.
+            wizard.close()
+            wizard.deleteLater()
+        except NameError:
+            pass
+        return
+
     # Create the application
     app = QApplication(sys.argv)
 
@@ -77,6 +113,9 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
     # Create the initial dialog box
     load_msg_box = LoadMessageBox()
     result = load_msg_box.exec()
+    config_file = load_msg_box.config_combo.currentText()
+    print("main", config_file)
+    load_msg_box.save_last_config(config_file)
 
     settings = QSettings('SpeedyQC', 'DicomViewer')
 
@@ -88,19 +127,19 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
 
         if result == setup_window.DialogCode.Accepted:
             # Create the main window and pass the dicom directory
-            window = MainWindow(settings)
+            window = MainApp(settings)
             window.show()
         else:
+            cleanup()
             sys.exit()
 
     # User selects to `Cancel` -> exit the application
     elif result == load_msg_box.DialogCode.Rejected:
+        cleanup()
         sys.exit()
 
     # User selects to `Conf. Wizard` -> show the ConfigurationWizard
     else:
-        config_file = load_msg_box.config_combo.currentText()
-        load_msg_box.save_last_config(config_file)
         if hasattr(sys, '_MEIPASS'):
             # This is a py2app executable
             resource_dir = sys._MEIPASS
@@ -109,10 +148,12 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
             resource_dir = os.path.dirname(os.path.abspath("__main__"))
         else:
             resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
-        wizard = ConfigurationWizard(os.path.join(resource_dir, 'config.yml'))
+        wizard = ConfigurationWizard(os.path.join(resource_dir, config_file))
         wizard.show()
 
-    sys.exit(app.exec())
+    exit_code = app.exec()
+    cleanup()
+    sys.exit(exit_code)
 
 
 if __name__ == '__main__':

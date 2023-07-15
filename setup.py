@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     author='Ian Selby',
     author_email='ias49@cam.ac.uk',
-    description='Tool to label single DICOM images using custom checkboxes',
+    description='Tool to label single DICOM images using custom checkboxes, bounding boxes and radiobuttons',
     name='Speedy QC',
     url='https://github.com/selbs/speedy_qc',
     use_scm_version=True,
@@ -13,7 +13,7 @@ setup(
     entry_points={
         'console_scripts': [
             'speedy_qc=speedy_qc.main:main',
-            'speedy_config=speedy_qc.config_wizard:main'
+            'speedy_config=speedy_qc.wizard:main'
         ]
     },
     classifiers=[
@@ -36,6 +36,7 @@ setup(
         "setuptools>=42.0.0",
         "python-gdcm>=3.0.21",
         "py2app>=0.28.5",
-        "matplotlib>=3.4.3"
+        "matplotlib>=3.4.3",
+        "imageio>=2.31.0",
     ],
 )

@@ -1,12 +1,10 @@
 """
-main_window.py
+main_app.py
 
 This module contains the main window of the application.
 
 Classes:
-    - MainWindow: Main window of the application.
-    - CustomGraphicsView: Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes.
-    - BoundingBoxItem: Custom graphics item to draw bounding boxes.
+    - MainApp: Main window of the application.
 """
 
 import os
@@ -22,14 +20,16 @@ import qtawesome as qta
 from PyQt6.QtCore import QTimer
 import datetime
 import json
-import math
-from typing import Optional, Dict, List, Tuple
+from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import sys
-import collections
+from math import ceil
+import imageio as iio
+from functools import partial
 
-from speedy_qc.custom_windows import AboutMessageBox
-from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging
+from speedy_qc.windows import AboutMessageBox
+from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging, bytescale, convert_to_checkstate
+from speedy_qc.graphics import CustomGraphicsView, BoundingBoxItem
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -42,238 +42,16 @@ else:
 
 outer_setting = QSettings('SpeedyQC', 'DicomViewer')
 config_file = outer_setting.value("last_config_file", os.path.join(resource_dir, "config.yml"))
-config_data = open_yml_file(os.path.join(resource_dir, config_file))
-logger, console_msg = setup_logging(config_data['log_dir'])
+config = open_yml_file(os.path.join(resource_dir, config_file))
+logger, console_msg = setup_logging(config['log_dir'])
 
 
-class CustomGraphicsView(QGraphicsView):
+class MainApp(QMainWindow):
     """
-    Custom graphics view to handle zooming, panning, resizing and drawing bounding boxes. This class is used to display
-    the DICOM images and is the central widget of the main window.
+    Main window of the application.
 
-    Methods:
-        - zoom_in (self): Zoom in by a factor of 1.2 (20%).
-        - zoom_out (self): Zoom out by a factor of 0.8 (20%).
-        - on_main_window_resized (self): Resize the image and maintain the same zoom when the main window is resized.
-        - mousePressEvent (self, event: QMouseEvent): Start drawing a bounding box when the left mouse button is
-                                pressed.
-        - mouseMoveEvent (self, event: QMouseEvent): Update the bounding box when the mouse is moved.
-        - mouseReleaseEvent (self, event: QMouseEvent): Finish drawing the bounding box when the left mouse button is
-                                released.
-        - set_current_finding (self, finding: str, color: QColor): Set the current finding/checkbox to give context to
-                                any bounding box drawn.
-        - remove_all_bounding_boxes (self): Remove all bounding boxes from the scene.
-        - add_bboxes (self, rect_items: dict): Add previously drawn bounding boxes to the scene.
-    """
-    def __init__(self, parent: Optional[QWidget] = None):
-        """
-        Initialize the custom graphics view.
-        """
-        super().__init__()
-        # self.connections = {}
-        self.connection_manager = ConnectionManager()
-        self.setRenderHint(QPainter.RenderHint.Antialiasing)
-        self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
-        self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
-        self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
-        self.zoom = 1.0
-        self.start_rect = None
-        self.current_finding = None
-        self.current_color = None
-        # self.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-
-        self.touch_points = []
-        self.rect_items = {}
-
-        if isinstance(parent, MainWindow):
-            self.connection_manager.connect(parent.resized, self.on_main_window_resized)
-
-    def zoom_in(self):
-        """
-        Zoom in by a factor of 1.2 (20%).
-        """
-        factor = 1.2
-        self.zoom *= factor
-        self.scale(factor, factor)
-
-    def zoom_out(self):
-        """
-        Zoom out by a factor of 0.8 (20%).
-        """
-        factor = 0.8
-        self.zoom /= factor
-        self.scale(factor, factor)
-
-    def on_main_window_resized(self):
-        """
-        Resize the image and maintain the same zoom when the main window is resized.
-        """
-        if self.scene() and self.scene().items():
-            self.fitInView(self.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
-            self.scale(self.zoom, self.zoom)
-
-    def mousePressEvent(self, event: QMouseEvent):
-        """
-        Start drawing a bounding box when the left mouse button is pressed.
-
-        :param event: QMouseEvent, the mouse press event containing information about the button and position
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.scene() and self.current_finding:
-                pos = self.mapToScene(event.position().toPoint())
-                color = self.current_color
-                self.start_rect = BoundingBoxItem(QRectF(pos, QSizeF(0, 0)), color)
-                self.scene().addItem(self.start_rect)
-                if self.current_finding in self.rect_items:
-                    self.rect_items[self.current_finding].append(self.start_rect)
-                else:
-                    self.rect_items[self.current_finding] = [self.start_rect]
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event: QMouseEvent):
-        """
-        Update the size of the bounding box as the mouse is moved.
-
-        :param event: QMouseEvent, the mouse move event containing information about the buttons and position
-        """
-        if event.buttons() & Qt.MouseButton.LeftButton:
-            if self.start_rect:
-                pos = self.mapToScene(event.position().toPoint())
-                width = pos.x() - self.start_rect.rect().x()
-                height = pos.y() - self.start_rect.rect().y()
-                self.start_rect.setRect(QRectF(self.start_rect.rect().x(), self.start_rect.rect().y(), width, height))
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event: QMouseEvent):
-        """
-        Stop drawing the bounding box when the left mouse button is released.
-
-        :param event: QMouseEvent, the mouse release event containing information about the button and position
-        """
-        if event.button() == Qt.MouseButton.LeftButton:
-            if self.start_rect:
-                self.start_rect = None
-        super().mouseReleaseEvent(event)
-
-    def set_current_finding(self, finding: Optional[str], color: Optional[QColor]):
-        """
-        Set the current finding and color to be used when drawing bounding boxes.
-
-        :param finding: str, the name of the finding/checkbox
-        :param color: QColor, the color to be used when drawing the bounding box
-        """
-        self.current_finding = finding
-        self.current_color = color
-
-    def remove_all_bounding_boxes(self):
-        """
-        Remove all bounding boxes from the scene.
-        """
-        for finding, bboxes in self.rect_items.items():
-            for bbox in bboxes:
-                self.scene().removeItem(bbox)
-        self.rect_items.clear()
-
-    def add_bboxes(self, rect_items: Dict[str, List]):
-        """
-        Add previously drawn bounding boxes to the scene.
-
-        :param rect_items: dict, a dictionary of finding/checkbox names and their corresponding bounding boxes
-        """
-        # Add previously drawn bounding boxes to the scene
-        for finding, bboxes in rect_items.items():
-            for bbox in bboxes:
-                self.scene().addItem(bbox)
-                if finding in self.rect_items:
-                    self.rect_items[finding].append(bbox)
-                else:
-                    self.rect_items[finding] = [bbox]
-
-
-class BoundingBoxItem(QGraphicsRectItem):
-    """
-    Custom graphics item to handle drawing bounding boxes on DICOM images.
-    This class inherits from QGraphicsRectItem and provides selectable, movable, and removable bounding boxes.
-
-    Methods:
-        - contextMenuEvent: Show a context menu when the bounding box is right-clicked, allowing them to be removed.
-    """
-    def __init__(self, rect, color, parent=None):
-        """
-        Initializes a new BoundingBoxItem with the given rectangle, color, and optional parent item.
-
-        :param rect: QRectF, the rectangle defining the bounding box's geometry
-        :param color: QColor, the color of the bounding box's border
-        :param parent: QGraphicsItem, optional parent item (default: None)
-        """
-        super().__init__(rect, parent)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
-        self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-        self.setAcceptHoverEvents(True)
-        self.setPen(QPen(color, 5))
-
-    def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
-        """
-        Show a context menu when the bounding box is right-clicked, allowing them to be removed.
-
-        :param event: QGraphicsSceneContextMenuEvent, the event that triggered the context menu.
-        """
-        menu = QMenu()
-        remove_action = menu.addAction("Remove")
-        selected_action = menu.exec(event.screenPos())
-
-        if selected_action == remove_action:
-            self.scene().removeItem(self)
-
-
-class MainWindow(QMainWindow):
-    """
-    Main window for the application.
-
-    Methods:
-        - prep_first_image (self): Prepare the bounding boxes to display the first image.
-        - init_connections (self): Initialize the connections between the UI elements and their corresponding functions.
-        - backup_file (self): Save backup file if triggered by the timer.
-        - wheelEvent (self, event: QWheelEvent): Changes windowing when the mouse wheel is scrolled with the Ctrl/Cmd
-                                or Shift key pressed.
-        - open_findings_yml (self): Open the relevant config .yml file with the settings for the app.
-        - on_text_changed (self): Update the notes dictionary when the text in the text box is changed.
-        - invert_greyscale (self): Invert the greyscale of the image.
-        - rotate_image_left (self): Rotate the image 90 degrees to the left.
-        - rotate_image_right (self): Rotate the image 90 degrees to the right.
-        - apply_stored_rotation (self): Restore any rotation previously applied to the image.
-        - rotate_bounding_boxes (self, filename: str, rotation_angle: int, reverse: bool = False): Rotate the bounding
-                                boxes to match the image is rotation.
-        - resizeEvent (self, event: QResizeEvent): Trigger the CustomGraphicsView to handle resizing and zoom of the
-                                image when the window is resized.
-        - load_file (self): Load the DICOM file at the given index and apply the look-up tables.
-        - load_image (self): Add the image to the scene.
-        - update_image (self): Update the image with the applied windowing.
-        - create_checkboxes (self): Create the checkboxes for the findings from the config file
-        - set_checkbox_toolbar (self): Set up the checkbox toolbar on the right of the window.
-        - restore_saved_state (self): Restore the saved state of the checkboxes from the QSettings.
-        - reset_window_sliders (self): Reset the windowing sliders to their default values.
-        - change_image (self, direction: str, prev_failed: bool = False): Load the next or previous image in the
-                                directory.
-        - previous_image (self): Load the previous image in the directory using change_image.
-        - next_image (self, prev_failed: bool = False): Load the next image in the directory using change_image.
-        - is_image_viewed (self): Check if the image has been viewed previously.
-        - set_checkbox_value (self): Set the checkbox value to True or False when clicked.
-        - keyPressEvent (self, event: QKeyEvent): Handle key presses for the shortcuts.
-        - save_settings (self): Save settings to the QSettings.
-        - save_to_json (self): Direct the save process to 'save as' dialog or just to save to the current file.
-        - save_as (self): Creates and handles a dialog to save the current outputs to a new location.
-        - save_json (self, selected_file: str): Save the current outputs to a JSON file.
-        - load_from_json (self): Load progress from a JSON file.
-        - load_bounding_box (self, file: str, finding: str, raw_rect: tuple): Load the bounding box from the JSON file
-                                and convert into BoundingBoxItem instance.
-        - on_checkbox_changes (self, state: int): Triggered when the checkbox state is changed and updates the UI.
-        - assign_colours_to_findings (self): Assign a colour to each finding/checkbox.
-        - closeEvent (self, event: QCloseEvent): Triggered when the window is closed and saves the settings.
-        - init_menus (self): Initialize the menus for the main window.
-        - show_about (self): Show the 'About' window.
-        - quit_app (self): Quit the application and disconnect all signals.
+    :param settings: The loaded app settings.
+    :type settings: QSettings
     """
     resized = pyqtSignal()
 
@@ -281,7 +59,8 @@ class MainWindow(QMainWindow):
         """
         Initialize the main window.
 
-        :param settings: QSettings, the loaded app settings.
+        :param settings: The loaded app settings.
+        :type settings: QSettings
         """
         super().__init__()
         # Initialize UI
@@ -294,14 +73,16 @@ class MainWindow(QMainWindow):
         # Initialize variables
         self.current_index = 0
         self.checkboxes = {}
-        self.tristate_cboxes = False
+        self.radiobuttons = {}
+        self.ratiobuttons_boxes = {}
         self.colors = {}
-        self.dir_path = self.settings.value("dicom_path", "")
+        self.dir_path = self.settings.value("image_path", "")
         self.json_path = self.settings.value("json_path", "")
         self.backup_interval = self.settings.value("backup_interval", 5, type=int)
+        self.image = None
 
         # Set the initial window size
-        self.resize(1250, 1000)
+        self.resize(self.settings.value('window_size', QSize(800, 600)))
 
         # Set the default colors for the icons
         qta.set_defaults(
@@ -334,27 +115,38 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(icon_path))
 
         # Set the central widget to the image viewer
-        self.image_view = CustomGraphicsView(self)
+        self.image_view = CustomGraphicsView(self, main_window=True)
         self.image_view.resize(self.size())
 
-        # Load the DICOM file list
-        self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
+        # Load the image file list
+        # self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith('.dcm')])
+        self.file_list = sorted([f for f in os.listdir(self.dir_path) if f.endswith((
+                    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif', '.dcm', '.dicom',
+                ))])
 
         # Load the configuration file
         config = self.open_config_yml()
-        self.findings = config['checkboxes']
-        self.tristate_cboxes = bool(config['tristate_cboxes'])
-        self.max_backups = config['max_backups']
-        self.backup_dir = config['backup_dir']
-        if "~" in self.backup_dir:
-            self.backup_dir = os.path.expanduser(self.backup_dir)
-        self.backup_interval = config['backup_interval']
+        self.findings = config.get('checkboxes', [])
+        self.radiobutton_groups = config.get('radiobuttons', {})
+        # self.task = "medical diagnosis"
+        self.tristate_checkboxes = config.get('tristate_checkboxes', False)
+        self.max_backups = config.get('max_backups', 10)
+        self.backup_dir = config.get('backup_dir', os.path.expanduser('~/speedy_qc/backups'))
+        self.backup_dir = os.path.expanduser(self.backup_dir)
+        self.backup_interval = config.get('backup_interval', 5)
 
         # Initialize dictionaries for outputs
         self.viewed_values = {f: False for f in self.file_list}
         self.rotation = {f: 0 for f in self.file_list}
         self.notes = {f: "" for f in self.file_list}
-        self.checkbox_values = {f: {finding: 0 for finding in self.findings} for f in self.file_list}
+        if bool(self.findings):
+            self.checkbox_values = {f: {finding: 0 for finding in self.findings} for f in self.file_list}
+        else:
+            self.checkbox_values = {f: {} for f in self.file_list}
+        if bool(self.radiobutton_groups):
+            self.radiobutton_values = {f: {group['title']: None for group in self.radiobutton_groups} for f in self.file_list}
+        else:
+            self.radiobutton_values = {f: {} for f in self.file_list}
         self.bboxes = {f: {} for f in self.file_list}
 
         # Assign colors to findings
@@ -396,21 +188,18 @@ class MainWindow(QMainWindow):
         self.file_tool_bar.addAction(self.saveAction)
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.file_tool_bar)
 
-        # Create the checkbox toolbar
-        self.checkbox_toolbar = QToolBar(self)
-        self.create_checkboxes()
-        self.set_checkbox_toolbar()
-        # Add the textbox for notes
-        self.textbox = QTextEdit()
-        self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        text_action = QWidgetAction(self)
-        text_action.setDefaultWidget(self.textbox)
+        # Create the labelling toolbar
+        self.labelling_toolbar = QToolBar(self)
+        self.viewed_label = QLabel(self)
+        self.viewed_icon = QLabel(self)
+        if bool(self.findings):
+            self.create_checkboxes()
+        if bool(self.radiobutton_groups):
+            for group in self.radiobutton_groups:
+                self.create_radiobuttons(group['title'], group['labels'])
         self.textbox_label = QLabel(self)
-        self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.textbox_label.setObjectName("Notes")
-        self.textbox_label.setText("NOTES:")
-        self.checkbox_toolbar.addWidget(self.textbox_label)
-        self.checkbox_toolbar.addAction(text_action)
+        self.textbox = QTextEdit(self)
+        self.set_labelling_toolbar()
 
         # Create the image toolbar for image manipulation
         self.image_toolbar = QToolBar(self)
@@ -509,7 +298,13 @@ class MainWindow(QMainWindow):
         percent_viewed = 100 * len([value for value in self.viewed_values.values() if value]) / len(self.file_list)
         self.update_progress_bar(percent_viewed)
 
-    def update_progress_bar(self, progress):
+    def update_progress_bar(self, progress: float):
+        """
+        Update the progress bar with the current progress
+
+        :param progress: the current progress
+        :type progress: float
+        """
         self.progress_bar.setValue(int(progress))
 
     def prep_first_image(self):
@@ -545,6 +340,9 @@ class MainWindow(QMainWindow):
     def backup_file(self) -> List[str]:
         """
         Backs up the current file to a backup folder when triggered by the timer.
+
+        :return: A list of backup files
+        :rtype: List[str]
         """
 
         backup_folder_path = self.backup_dir
@@ -583,7 +381,8 @@ class MainWindow(QMainWindow):
         - Ctrl/Cmd + Scroll: Change window width
         - Shift + Scroll: Change window center
 
-        :param event: QWheelEvent
+        :param event: The wheelEvent function to override
+        :type event: QWheelEvent
         """
         if event.modifiers() == Qt.KeyboardModifier.ControlModifier:  # check if Ctrl key is pressed
             delta = event.angleDelta().y()  # get the scroll direction
@@ -608,10 +407,13 @@ class MainWindow(QMainWindow):
         """
         Opens the config .yml file and returns the data, including the list of findings/checkboxes,
         the maximum number of backups, the backup directory and the log directory.
+
+        :return: The config data
+        :rtype: Dict
         """
         last_config_file = self.settings.value("last_config_file", "config.yml")
-        cbox_file = os.path.join(resource_dir, last_config_file)
-        return open_yml_file(cbox_file)
+        conf_file = os.path.join(resource_dir, last_config_file)
+        return open_yml_file(conf_file)
 
     def on_text_changed(self):
         """
@@ -674,9 +476,12 @@ class MainWindow(QMainWindow):
         """
         Rotates the bounding boxes around the center of the image to match the image rotation.
 
-        :param filename: str, the name of the image file.
-        :param rotation_angle: int, the angle to rotate the bounding boxes by.
-        :param reverse: bool, if True, the rotation is reversed, default is False.
+        :param filename: The name of the image file.
+        :type filename: str
+        :param rotation_angle: The angle to rotate the bounding boxes by.
+        :type rotation_angle: int
+        :param reverse: If True, the rotation is reversed, default is False.
+        :type reverse: bool
         """
         if not reverse:
             rotation_angle = -rotation_angle
@@ -685,62 +490,43 @@ class MainWindow(QMainWindow):
             center = self.pixmap_item.boundingRect().center()
             for finding, bboxes in self.bboxes[filename].items():
                 for bbox in bboxes:
-                    rect = bbox.rect()
-
-                    rect_center = rect.center()
-
-                    # Translate rect center to the origin
-                    rect_center -= QPointF(center.x(), center.y())
-
-                    # Rotate rect center around the origin
-                    angle_rad = math.radians(rotation_angle)
-                    new_x = rect_center.x() * math.cos(angle_rad) - rect_center.y() * math.sin(angle_rad)
-                    new_y = rect_center.x() * math.sin(angle_rad) + rect_center.y() * math.cos(angle_rad)
-
-                    # Translate rect center back to its original position
-                    new_center = QPointF(new_x, new_y) + QPointF(center.x(), center.y())
-
-                    # Swap the width and height of the bounding box if the rotation angle is 90 or 270 degrees
-                    if rotation_angle % 180 != 0:
-                        new_width = rect.height()
-                        new_height = rect.width()
-                        rect.setWidth(new_width)
-                        rect.setHeight(new_height)
-
-                    # Set the new rect center
-                    rect.moveCenter(new_center)
-
-                    # Update the bounding box rect
-                    bbox.setRect(rect)
+                    bbox.rotate(rotation_angle, center)
 
     def resizeEvent(self, event: QResizeEvent):
         """
         Emits a signal to update the image size and zoom when the window is resized.
 
-        :param event: QResizeEvent, the resize event containing the old and new sizes of the widget
+        :param event: The resize event containing the old and new sizes of the widget
+        :type event: QResizeEvent
         """
         super().resizeEvent(event)
         self.resized.emit()
 
     def load_file(self):
         """
-        Loads the DICOM file and applies the look-up tables.
+        Loads the image file and applies the look-up tables.
         """
         file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
+        file_extension = os.path.splitext(file_path)[1]
 
         try:
-            # Read the DICOM file
-            ds = pydicom.dcmread(file_path)
-            self.image = ds.pixel_array
-            self.image = apply_modality_lut(self.image, ds)
-            self.image = apply_voi_lut(self.image.astype(int), ds, 0)
-
-            # Convert the pixel array to an 8-bit integer array
-            if ds.BitsStored != 8:
-                _min = np.amin(self.image)
-                _max = np.amax(self.image)
-                self.image = (self.image - _min) * 255.0 / (_max - _min)
-                self.image = np.uint8(self.image)
+            if file_extension == ".dcm":
+                # Read the DICOM file
+                ds = pydicom.dcmread(file_path)
+                self.image = ds.pixel_array
+                self.image = apply_modality_lut(self.image, ds)
+                self.image = apply_voi_lut(self.image.astype(int), ds, 0)
+                # Convert the pixel array to an 8-bit integer array
+                if ds.BitsStored != 8:
+                    _min = np.amin(self.image)
+                    _max = np.amax(self.image)
+                    self.image = (self.image - _min) * 255.0 / (_max - _min)
+                    self.image = np.uint8(self.image)
+            else:
+                # Read the image file
+                raw_image = iio.imread(file_path)
+                if raw_image.dtype == np.uint8:
+                    self.image = bytescale(raw_image)
         except Exception as e:
             # Handle the exception (e.g. display an error message)
             QMessageBox.critical(self, "Error", f"Failed to load file:\n{str(e)}", QMessageBox.StandardButton.Ok,
@@ -783,8 +569,7 @@ class MainWindow(QMainWindow):
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
-            if self.tristate_cboxes:
-                self.checkboxes[cbox].setTristate(self.tristate_cboxes)
+            self.checkboxes[cbox].setTristate(self.tristate_checkboxes)
             semitrans_color = QColor(self.colors[cbox])
             semitrans_color.setAlpha(64)
             self.checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
@@ -801,59 +586,163 @@ class MainWindow(QMainWindow):
                                                 f"width: 18px;"
                                                 f"height: 18px;"
                                                 f"}} ")
-            self.checkboxes[cbox].setChecked(self.checkbox_values.get(filename, 0).get(cbox, 0))
+            self.checkboxes[cbox].setCheckState(convert_to_checkstate(self.checkbox_values.get(filename, 0).get(cbox, 0)))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
 
-    def set_checkbox_toolbar(self):
+    def create_radiobuttons(self, name, options_list):
+        """
+        Creates the radio buttons for the given options.
+
+        :param name: The name of the radio button group
+        :type name: str
+        :param options_list: The list of options
+        :type options_list: list
+        """
+        group_box = QGroupBox(name)
+        options = [str(option) for option in options_list]
+        max_label_length = max([len(label) for label in options])
+        layout = QGridLayout()
+        num_columns = ceil(4 / max_label_length)  # Adjust the number of columns based on the label length
+
+        # Create a new button group
+        button_group = QButtonGroup()
+        # Create the radio buttons
+        for i, option in enumerate(options):
+            radiobutton = QRadioButton(option)
+            row = i // num_columns
+            col = i % num_columns
+            layout.addWidget(radiobutton, row, col)
+            button_group.addButton(radiobutton, i)
+
+        group_box.setLayout(layout)
+        self.ratiobuttons_boxes[name] = group_box
+        self.radiobuttons[name] = button_group
+        self.set_checked_radiobuttons()
+        self.connection_manager.connect(self.radiobuttons[name].idToggled,
+                                        partial(self.on_radiobutton_changed, name))
+
+    def on_radiobutton_changed(self, name, id, checked):
+        """
+        Called when a radio button is changed.
+
+        :param name: Name of the radio button group
+        :type name: str
+        :param id: ID of the radio button
+        :type id: int
+        :param checked: Whether the radio button is checked
+        :type checked: bool
+        """
+        if checked:
+            self.radiobutton_values[self.file_list[self.current_index]][name] = id
+
+    def uncheck_all_radiobuttons(self):
+        """
+        Unchecks all the radio buttons.
+        """
+        for button_group in self.radiobuttons.values():
+            button_group.setExclusive(False)
+            for button in button_group.buttons():
+                button.setChecked(False)
+            button_group.setExclusive(True)
+
+    def update_all_radiobutton_values(self):
+        """
+        Updates the values of all the radio buttons.
+        """
+        for name, button_group in self.radiobuttons.items():
+            self.radiobutton_values[self.file_list[self.current_index]][name] = button_group.checkedId()
+
+    def set_checked_radiobuttons(self):
+        """
+        Sets the checked radio buttons.
+        """
+        for name in self.radiobuttons.keys():
+            if self.radiobutton_values.get(self.file_list[self.current_index]).get(name) is not None:
+                self.radiobuttons[name].button(
+                    self.radiobutton_values.get(self.file_list[self.current_index]).get(name)
+                ).setChecked(True)
+            else:
+                self.uncheck_all_radiobuttons()
+
+    def set_labelling_toolbar(self):
         """
         Sets the checkbox toolbar.
         """
+        # Create a scroll area and widget
+        scroll = QScrollArea(self)
+        scroll.setWidgetResizable(True)
+        widget = QWidget()
+        layout = QVBoxLayout()
+        widget.setLayout(layout)
+        scroll.setWidget(widget)
+
         spacer_item = QSpacerItem(0, 5, QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         spacer_widget = QWidget()
         spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         spacer_widget.setLayout(QHBoxLayout())
         spacer_widget.layout().addItem(spacer_item)
-        self.checkbox_toolbar.addWidget(spacer_widget)
+        layout.addWidget(spacer_widget)
 
-        self.viewed_label = QLabel(self)
         self.viewed_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.viewed_label.setObjectName("viewed_label")
         self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
-        self.checkbox_toolbar.addWidget(self.viewed_label)
-
-        self.viewed_icon = QLabel(self)
+        layout.addWidget(self.viewed_label)
         self.viewed_icon.setAlignment(Qt.AlignmentFlag.AlignHCenter)
         self.viewed_icon.setPixmap(
             QPixmap(self.icons['viewed'].pixmap(self.file_tool_bar.iconSize() * 2) if self.is_image_viewed()
                     else self.icons['not_viewed'].pixmap(self.file_tool_bar.iconSize() * 2))
         )
-        self.checkbox_toolbar.addWidget(self.viewed_icon)
+        layout.addWidget(self.viewed_icon)
 
-        # self.checkbox_toolbar.addWidget(spacer_widget)
+        # self.labelling_toolbar.addWidget(spacer_widget)
         spacer_widget = QWidget()
         spacer_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         spacer_widget.setLayout(QHBoxLayout())
         spacer_widget.layout().addItem(spacer_item)
-        self.checkbox_toolbar.addWidget(spacer_widget)
+        layout.addWidget(spacer_widget)
 
-        checkbox_heading = QLabel(self)
-        checkbox_heading.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        checkbox_heading.setText("FINDINGS:")
-        self.checkbox_toolbar.addWidget(checkbox_heading)
+        if bool(self.findings):
+            checkbox_heading = QLabel(self)
+            checkbox_heading.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            checkbox_heading.setText("FINDINGS:")
+            layout.addWidget(checkbox_heading)
 
-        checkbox_layout = QVBoxLayout()
-        for finding, checkbox in self.checkboxes.items():
-            checkbox_layout.addWidget(checkbox)
+            checkbox_layout = QVBoxLayout()
+            for finding, checkbox in self.checkboxes.items():
+                checkbox_layout.addWidget(checkbox)
 
-        checkbox_layout.addItem(spacer_item)
-        checkbox_layout.addItem(spacer_item)
-        checkbox_widget = QWidget(self)
-        checkbox_widget.setLayout(checkbox_layout)
+            checkbox_layout.addItem(spacer_item)
+            checkbox_layout.addItem(spacer_item)
+            checkbox_widget = QWidget(self)
+            checkbox_widget.setLayout(checkbox_layout)
 
-        # Create a toolbar to hold the checkbox widget
-        self.checkbox_toolbar.addWidget(checkbox_widget)
-        self.checkbox_toolbar.setStyleSheet("QToolBar QLabel { font-weight: bold; }")
-        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.checkbox_toolbar)
+            layout.addWidget(checkbox_widget)
+
+        if self.radiobutton_groups is not None:
+            # radiobutton_heading = QLabel(self)
+            # radiobutton_heading.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            # radiobutton_heading.setText(f"For {self.task}, please rate:")
+            # self.labelling_toolbar.addWidget(radiobutton_heading)
+            for radio_group_name, radio_group_box in self.ratiobuttons_boxes.items():
+                layout.addWidget(radio_group_box)
+
+        # Add the Notes textbox
+        self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+        self.textbox_label.setObjectName("Notes")
+        self.textbox_label.setText("NOTES:")
+        layout.addWidget(self.textbox_label)
+        self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.textbox.setMinimumHeight(150)
+        self.connection_manager.connect(self.textbox.textChanged, self.on_text_changed)
+        layout.addWidget(self.textbox)
+
+        self.labelling_toolbar.setStyleSheet("QToolBar QLabel { font-weight: bold; }")
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.labelling_toolbar)
+
+        scroll_action = QWidgetAction(self)
+        scroll_action.setDefaultWidget(scroll)
+        self.labelling_toolbar.addAction(scroll_action)
+        self.addToolBar(Qt.ToolBarArea.RightToolBarArea, self.labelling_toolbar)
 
     def restore_from_saved_state(self):
         """
@@ -884,11 +773,16 @@ class MainWindow(QMainWindow):
         """
         Changes the current image in the file list based on the given direction.
 
-        :param direction: str, either "previous" or "next"
+        :param direction: Either "previous" or "next" image
         :param prev_failed: bool, only applicable if direction is "next"
         """
         if direction not in ("previous", "next"):
             raise ValueError("Invalid direction value. Expected 'previous' or 'next'.")
+
+        for cbox in self.findings:
+            # Set the checkbox value based on the stored value
+            checkbox_value = self.checkbox_values.get(self.file_list[self.current_index], False)[cbox]
+            print(cbox, checkbox_value)
 
         # if direction == "previous":
         #     self.viewed_values[self.file_list[self.current_index]] = True
@@ -945,6 +839,7 @@ class MainWindow(QMainWindow):
         self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
 
         self.set_checkbox_value()
+        self.set_checked_radiobuttons()
 
         self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
         self.viewed_icon.setPixmap(
@@ -965,7 +860,8 @@ class MainWindow(QMainWindow):
         """
         Loads the next image in the file list.
 
-        :param prev_failed: bool, whether the image previously failed to load
+        :param prev_failed: Whether the image previously failed to load
+        :type prev_failed: bool
         """
         self.change_image("next", prev_failed)
 
@@ -985,13 +881,15 @@ class MainWindow(QMainWindow):
         for cbox in self.findings:
             # Set the checkbox value based on the stored value
             checkbox_value = self.checkbox_values.get(filename, False)[cbox]
-            self.checkboxes[cbox].setChecked(checkbox_value)
+            print(cbox, checkbox_value)
+            self.checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
 
     def keyPressEvent(self, event: QKeyEvent):
         """
         Handles key presses as shortcuts.
 
-        :param event: QKeyEvent, the key press event
+        :param event: The key press event
+        :type event: QKeyEvent
         """
         # Set up shortcuts
         # if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
@@ -1036,8 +934,11 @@ class MainWindow(QMainWindow):
             saved = self.save_as()
             if not saved:
                 return False
+            else:
+                return True
         else:
             self.save_json(self.json_path)
+            return True
 
     def save_as(self):
         """
@@ -1055,6 +956,7 @@ class MainWindow(QMainWindow):
             self.save_json(save_path)
             self.settings.setValue("default_directory", file_dialog.directory().path())
             self.save_settings()
+            return True
         else:
             return False
 
@@ -1062,16 +964,22 @@ class MainWindow(QMainWindow):
         """
         Saves the current outputs to a JSON file.
 
-        :param selected_file: str, the path to the file to save to
+        :param selected_file: Path to the file to save to
+        :type selected_file: str
         """
         # Update bboxes for current file
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items
 
         data = []
         for filename in self.file_list:
-            cbox_out = {}
+
             viewed = self.viewed_values.get(filename, False)
+
             rotation = self.rotation.get(filename, 0)
+
+            notes = self.notes.get(filename, "")
+
+            cbox_out = {}
             for cbox in list(self.checkboxes.keys()):
                 # Get the checkbox values for the file
                 if viewed != "FAILED":
@@ -1088,7 +996,9 @@ class MainWindow(QMainWindow):
                     else:
                         bbox_out[finding] = [bbox.rect().getRect()]
 
-            notes = self.notes.get(filename, "")
+            radiobuttons_out = {}
+            for name, value in self.radiobutton_values[filename].items():
+                radiobuttons_out[name] = value
 
             data.append({
                 'filename': filename,
@@ -1096,13 +1006,20 @@ class MainWindow(QMainWindow):
                 'rotation': rotation,
                 'notes': notes,
                 'checkboxes': cbox_out,
-                'bboxes': bbox_out
+                'bboxes': bbox_out,
+                'radiobuttons': radiobuttons_out,
             })
 
         with open(selected_file, 'w') as file:
             json.dump(data, file, indent=2)
 
     def load_from_json(self) -> bool:
+        """
+        Loads the previous saved outputs from a JSON file.
+
+        :return: Whether the load was successful
+        :rtype: bool
+        """
 
         if self.settings.value("new_json", False):
             return False
@@ -1128,6 +1045,13 @@ class MainWindow(QMainWindow):
                     for finding, coord_sets in entry['bboxes'].items():
                         for coord_set in coord_sets:
                             self.load_bounding_box(filename, finding, coord_set)
+
+                if 'radiobuttons' in entry:
+                    for name, value in entry['radiobuttons'].items():
+                        if filename in self.radiobutton_values:
+                            self.radiobutton_values[filename][name] = value
+                        else:
+                            self.radiobutton_values[filename] = {name: value}
             return True
 
     def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
@@ -1135,9 +1059,12 @@ class MainWindow(QMainWindow):
         Loads a bounding box object from the x, y, height, width stored in the JSON file and adds it to the appropriate
         bboxes dictionary entry.
 
-        :param file: str, the file path of the image associated with the bounding box
-        :param finding: str, the finding type associated with the bounding box
-        :param raw_rect: tuple of (float, float, float, float), the (x, y, width, height) values of the bounding box
+        :param file: File path of the image associated with the bounding box
+        :type file: str
+        :param finding: The finding type associated with the bounding box
+        :type finding: str
+        :param raw_rect: The (x, y, width, height) values of the bounding box
+        :type raw_rect: Tuple[float, float, float, float]
         """
         bbx, bby, bbw, bbh = raw_rect
         color = self.colors[finding]
@@ -1152,7 +1079,8 @@ class MainWindow(QMainWindow):
         Updates the checkbox values when a checkbox is changed, updates the cursor mode, and sets the current finding
         in the image view based on the checkbox state.
 
-        :param state: int, the state of the checkbox (Qt.CheckState.Unchecked or Qt.CheckState.Checked)
+        :param state: The state of the checkbox (Qt.CheckState.Unchecked or Qt.CheckState.Checked)
+        :type state: int
         """
         filename = self.file_list[self.current_index]
         cbox = self.sender().text()
@@ -1186,7 +1114,8 @@ class MainWindow(QMainWindow):
         """
         Handles the close event.
 
-        :param event: QCloseEvent, the close event
+        :param event: The close event
+        :type event: QCloseEvent
         """
         # Ask the user if they want to save before closing
 
@@ -1195,6 +1124,8 @@ class MainWindow(QMainWindow):
         icon_label = QLabel()
         icon_label.setPixmap(self.icons['question'].pixmap(64, 64))
         close_msg_box.setIconPixmap(icon_label.pixmap())
+
+        self.settings.setValue('window_size', self.size())
 
         close_msg_box.setText("Save Changes?")
         close_msg_box.setInformativeText("Do you want to save changes before closing?")
