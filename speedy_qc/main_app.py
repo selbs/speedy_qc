@@ -218,6 +218,7 @@ class MainApp(QMainWindow):
                 self.create_radiobuttons(group['title'], group['labels'])
         self.textbox_label = QLabel(self)
         self.textbox = QTextEdit(self)
+
         self.set_labelling_toolbar()
 
         # Create the image toolbar for image manipulation
@@ -626,7 +627,6 @@ class MainApp(QMainWindow):
         """
         Creates the checkboxes for the findings.
         """
-        filename = self.file_list[self.current_index]
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
@@ -807,6 +807,9 @@ class MainApp(QMainWindow):
         self.textbox.setMinimumHeight(50)
         self.textbox.setMaximumHeight(150)
         self.textbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+        filename = self.file_list[self.current_index]
+        self.textbox.setText(self.notes.get(filename, 0))
+
         self.connection_manager.connect(self.textbox.textChanged, self.on_text_changed)
         layout.addWidget(self.textbox)
 
@@ -903,10 +906,6 @@ class MainApp(QMainWindow):
         if direction not in ("previous", "next"):
             raise ValueError("Invalid direction value. Expected 'previous' or 'next'.")
 
-        for cbox in self.findings:
-            # Set the checkbox value based on the stored value
-            checkbox_value = self.checkbox_values.get(self.file_list[self.current_index], False)[cbox]
-
         # if direction == "previous":
         #     self.viewed_values[self.file_list[self.current_index]] = True
         if not prev_failed:
@@ -965,6 +964,7 @@ class MainApp(QMainWindow):
 
         self.set_checkbox_value()
         self.set_checked_radiobuttons()
+        self.textbox.setText(self.notes.get(self.file_list[self.current_index], 0))
 
         self.viewed_label.setText(("" if self.is_image_viewed() else "NOT ") + "PREVIOUSLY VIEWED")
         self.viewed_icon.setPixmap(
