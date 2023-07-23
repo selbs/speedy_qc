@@ -627,6 +627,7 @@ class MainApp(QMainWindow):
         """
         Creates the checkboxes for the findings.
         """
+        filename = self.file_list[self.current_index]
         for cbox in self.findings:
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
