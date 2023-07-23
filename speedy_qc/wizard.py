@@ -61,7 +61,7 @@ class RadioButtonPage(QWizardPage):
         self.scrollArea = QScrollArea(self)
 
         # Create a widget that will contain the radio button groups
-        self.scrollWidget = QWidget()
+        self.scrollWidget = QWidget(self)
         self.scrollLayout = QVBoxLayout()
         self.scrollWidget.setLayout(self.scrollLayout)
 
@@ -82,8 +82,8 @@ class RadioButtonPage(QWizardPage):
         """
         Adds a radio button group to the page.
         """
-        dialog = RadioButtonGroupDialog(self)
-        if dialog.exec() == QDialog.Accepted:
+        dialog = RadioButtonGroupDialog()
+        if dialog.exec() == QDialog.DialogCode.Accepted:
             group = QGroupBox(dialog.title)
             layout = QGridLayout()  # Use QGridLayout for multiple columns
 
@@ -97,9 +97,9 @@ class RadioButtonPage(QWizardPage):
                 layout.addWidget(radio_button, row, col)
 
             # Adding a remove button
-            removeButton = QPushButton("Remove Group")
-            self.connection_manager.connect(removeButton.clicked, lambda: self.remove_group(group))
-            layout.addWidget(removeButton, ceil(len(dialog.labels) / num_columns), 0, 1, num_columns)  # Span the remove button across all columns
+            remove_button = QPushButton("Remove Group")
+            self.connection_manager.connect(remove_button.clicked, lambda: self.remove_group(group))
+            layout.addWidget(remove_button, ceil(len(dialog.labels) / num_columns), 0, 1, num_columns)  # Span the remove button across all columns
 
             group.setLayout(layout)
             self.scrollLayout.addWidget(group)
@@ -208,7 +208,7 @@ class RadioButtonGroupDialog(QDialog):
         self.labelsInput = QTextEdit(self)
         self.labelsInput.setPlaceholderText("Enter one label per line")
 
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel, self)
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
         self.connection_manager.connect(self.buttons.accepted, self.accept)
         self.connection_manager.connect(self.buttons.rejected, self.reject)
 
@@ -255,14 +255,14 @@ class ConfigurationWizard(QWizard):
         - update_combobox_state: Updates the QComboBox on the save page with the list of existing .yml files.
         - accept: Saves the configuration to a .yml file and closes the wizard.
     """
-    def __init__(self, config_path: str):
+    def __init__(self, config_path: str, parent=None):
         """
         Initializes the wizard.
 
         :param config_path: The path to the configuration file.
         :type config_path: str
         """
-        super().__init__()
+        super().__init__(parent)
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
         self.connection_manager = ConnectionManager()
 
@@ -328,7 +328,7 @@ class ConfigurationWizard(QWizard):
         self.resize(700, 800)
 
         # Set the default button to be the next / finish button
-        next_button = self.button(QWizard.NextButton)
+        next_button = self.button(QWizard.WizardButton.NextButton)
         next_button.setDefault(True)
 
     def create_options_page(self):
@@ -339,7 +339,7 @@ class ConfigurationWizard(QWizard):
         :return: The first page of the wizard.
         :rtype: QWizardPage
         """
-        page = QWizardPage()
+        page = QWizardPage(self)
         page.setTitle("Checkbox Page")
         page.setSubTitle("\nPlease select which types of input you want to use...\n")
 
@@ -396,7 +396,7 @@ class ConfigurationWizard(QWizard):
         :return: The page of the wizard that allows users to name the checkboxes.
         :rtype: QWizardPage
         """
-        page = QWizardPage()
+        page = QWizardPage(self)
         page.setTitle("Checkbox Labels")
         page.setSubTitle("\nPlease name the checkboxes to label the images...\n")
 
@@ -422,7 +422,7 @@ class ConfigurationWizard(QWizard):
         self.connection_manager.connect(self.add_label_button.clicked, lambda: self.add_label())
 
         # Create a QScrollArea
-        self.scroll_area = QScrollArea()
+        self.scroll_area = QScrollArea(self)
         self.scroll_area.setWidgetResizable(True)  # The contents will resize to fill the scroll area
         self.scroll_area.setWidget(self.labels_widget)
 
@@ -463,7 +463,7 @@ class ConfigurationWizard(QWizard):
         button.deleteLater()
 
     @staticmethod
-    def create_radio_page() -> QWizardPage:
+    def create_radio_page() -> RadioButtonPage:
         """
         Creates the page of the wizard that allows users to name the radio buttons.
 
@@ -492,7 +492,7 @@ class ConfigurationWizard(QWizard):
         :rtype: QWizardPage
         """
 
-        page = QWizardPage()
+        page = QWizardPage(self)
         page.setTitle("Logging and Backup Files")
         page.setSubTitle("\nPlease choose where logs and backups should be stored, and\n"
                          "specify maximum number of backup files...\n")
@@ -521,14 +521,14 @@ class ConfigurationWizard(QWizard):
         self.backup_layout.addWidget(self.backup_dir_edit)
 
         # Create a widget for the maximum number of backups
-        self.backup_spinbox = QSpinBox()
+        self.backup_spinbox = QSpinBox(self)
         self.backup_spinbox.setRange(1, 100)
         self.backup_spinbox.setValue(self.max_backups)
 
         self.backup_layout.addWidget(QLabel("Maximum Number of Backups:"))
         self.backup_layout.addWidget(self.backup_spinbox)
 
-        self.backup_int_spinbox = QSpinBox()
+        self.backup_int_spinbox = QSpinBox(self)
         self.backup_int_spinbox.setRange(1, 30)
         self.backup_int_spinbox.setValue(self.backup_interval)
 
@@ -547,7 +547,7 @@ class ConfigurationWizard(QWizard):
         :return: The page for the wizard to save the configuration file.
         :rtype: QWizardPage
         """
-        page = QWizardPage()
+        page = QWizardPage(self)
         page.setTitle("Save Configuration")
         page.setSubTitle("\nPlease select an existing configuration file or enter a new filename...\n")
 
@@ -555,10 +555,14 @@ class ConfigurationWizard(QWizard):
         layout = QVBoxLayout(page)
 
         # Create QComboBox for the list of available .yml files
-        self.config_files_combobox = QComboBox()
+        self.config_files_combobox = QComboBox(self)
         for file in os.listdir(resource_dir):
             if file.endswith('.yml'):
                 self.config_files_combobox.addItem(file)
+        last_used_file = self.settings.value("config_file", "config.yml")
+        index = self.config_files_combobox.findText(last_used_file)
+        if index >= 0:  # Only change the index if the file was found
+            self.config_files_combobox.setCurrentIndex(index)
 
         layout.addWidget(QLabel("Existing Configuration Files:"))
         layout.addWidget(self.config_files_combobox)
@@ -620,9 +624,12 @@ class ConfigurationWizard(QWizard):
             for i in range(self.labels_layout.count()):
                 hbox = self.labels_layout.itemAt(i).layout()  # Get the QHBoxLayout
                 if hbox is not None:
-                    line_edit = hbox.itemAt(0).widget()  # Get the QLineEdit from the QHBoxLayout
-                    if line_edit.text():
-                        new_checkbox_labels.append(line_edit.text())
+                    try:
+                        line_edit = hbox.itemAt(0).widget()  # Get the QLineEdit from the QHBoxLayout
+                        if line_edit.text():
+                            new_checkbox_labels.append(line_edit.text())
+                    except AttributeError:
+                        pass
             self.config_data['checkboxes'] = new_checkbox_labels
         else:
             self.config_data['checkboxes'] = []

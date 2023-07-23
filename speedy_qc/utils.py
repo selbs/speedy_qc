@@ -25,10 +25,12 @@ Functions:
 import logging.config
 import yaml
 import os
-from typing import Dict, Tuple, Any, Optional
+from typing import Dict, Tuple, Any, Optional, Union, List
 from PyQt6.QtCore import *
 import sys
 import numpy as np
+from PIL import Image
+
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -45,8 +47,8 @@ class Connection:
     A class to manage a single connection between a signal and a slot in a Qt application.
     """
     def __init__(self, signal: pyqtSignal, slot: callable):
-        self.signal = signal
-        self.slot = slot
+        self.signal: pyqtSignal = signal
+        self.slot: callable = slot
         self.connection = self.signal.connect(self.slot)
 
     def disconnect(self):
@@ -220,3 +222,30 @@ def convert_to_checkstate(value: int) -> Qt.CheckState:
     else:
         # Handle invalid values or default case
         return Qt.CheckState.Unchecked
+
+
+def create_icns(
+        png_path: str,
+        icns_path: str,
+        sizes: Optional[Union[Tuple[int], List[int]]] = (16, 32, 64, 128, 256, 512, 1024)
+):
+    img = Image.open(png_path)
+    icon_sizes = []
+
+    for size in sizes:
+        # Resize while maintaining aspect ratio (thumbnail method maintains aspect ratio)
+        copy = img.copy()
+        copy.thumbnail((size, size))
+
+        # Create new image and paste the resized image into it, centering it
+        new_image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+        new_image.paste(copy, ((size - copy.width) // 2, (size - copy.height) // 2))
+
+        icon_sizes.append(new_image)
+
+    if icns_path.endswith('.icns'):
+        icns_path = icns_path[:-5]
+
+    # Save the images as .icns
+    icon_sizes[0].save(f'{icns_path}.icns', format='ICNS', append_images=icon_sizes[1:])
+

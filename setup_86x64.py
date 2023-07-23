@@ -1,12 +1,12 @@
 from setuptools import setup, find_packages
 
 APP = ['speedy_qc/main.py']
-OPTIONS = {'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_cffi_backend'],
-           'resources': ['speedy_qc/assets', 'speedy_qc/config.yml', 'speedy_qc/log.conf'],
-           'dylib_excludes': ['libgfortran.3.dylib'], 'frameworks': ['/usr/local/opt/libffi/lib/libffi.8.dylib'],
-           'dist_dir': 'dist/86x64',
-           } | dict(plist=dict(NSRequiresAquaSystemAppearance=False,
-                               CFBundleIconFile="speedy_qc/assets/icns/white_panel.icns"))
+OPTIONS = {**{'iconfile': 'speedy_qc/assets/icns/white_panel.icns', 'includes': ['_cffi_backend'],
+              'resources': ['speedy_qc/assets', 'speedy_qc/config.yml', 'speedy_qc/log.conf'],
+              'dylib_excludes': ['libgfortran.3.dylib'], 'frameworks': ['/usr/local/opt/libffi/lib/libffi.8.dylib'],
+              'dist_dir': 'dist/86x64',
+              }, **dict(plist=dict(NSRequiresAquaSystemAppearance=False,
+                                   CFBundleIconFile="speedy_qc/assets/icns/white_panel.icns"))}
 
 setup(
     app=APP,
@@ -50,5 +50,6 @@ setup(
         "QtAwesome>=1.2.3",
         "matplotlib>=3.4.3",
         "imageio>=2.31.0",
+        "pillow>=10.0.0",
     ],
 )

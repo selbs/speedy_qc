@@ -38,5 +38,6 @@ setup(
         "py2app>=0.28.5",
         "matplotlib>=3.4.3",
         "imageio>=2.31.0",
+        "pillow>=10.0.0",
     ],
 )

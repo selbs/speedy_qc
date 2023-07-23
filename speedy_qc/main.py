@@ -61,6 +61,9 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
     """
 
     def cleanup():
+        """
+        Cleanup function. Closes and deletes all windows and widgets.
+        """
         # Cleanup load intro window
         try:
             # This might raise an exception if setup_window was never created,

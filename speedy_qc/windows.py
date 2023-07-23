@@ -36,7 +36,7 @@ else:
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
 
 outer_setting = QSettings('SpeedyQC', 'DicomViewer')
-config_file = outer_setting.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+config_file = outer_setting.value("config_file", os.path.join(resource_dir, "config.yml"))
 config_data = open_yml_file(os.path.join(resource_dir, config_file))
 logger, console_msg = setup_logging(config_data['log_dir'])
 
@@ -238,7 +238,7 @@ class LoadMessageBox(QDialog):
                 self.config_combo.addItem(file)
 
         # Set the default value of the QComboBox to the last config file used
-        last_config_file = self.settings.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+        last_config_file = self.settings.value("config_file", os.path.join(resource_dir, "config.yml"))
         self.config_combo.setCurrentText(last_config_file)
 
         # Add the QComboBox to the dialog box
@@ -331,7 +331,7 @@ class LoadMessageBox(QDialog):
         """
         # Save the selected config file to QSettings
         print(f"Selected config file: {conf_name}")
-        self.settings.setValue("last_config_file", os.path.join(resource_dir, conf_name))
+        self.settings.setValue("config_file", os.path.join(resource_dir, conf_name))
 
     def closeEvent(self, event: QCloseEvent):
         """
@@ -373,7 +373,7 @@ class SetupWindow(QDialog):
         self.folder_button.setFixedSize(25, 25)
         self.json_button.setFixedSize(25, 25)
         self.new_json = False
-        self.config = open_yml_file(self.settings.value("last_config_file", os.path.join(resource_dir, "config.yml")))
+        self.config = open_yml_file(self.settings.value("config_file", os.path.join(resource_dir, "config.yml")))
 
         # Set window title
         self.setWindowTitle("Speedy QC Setup")
@@ -400,7 +400,7 @@ class SetupWindow(QDialog):
 
         # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
         path = os.path.join(resource_dir, 'assets/2x/white_panel@2x.png')
-        logo = QPixmap(path).scaled(100, 100)
+        logo = QPixmap(path).scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio)
         icon_label = QLabel()
         icon_label.setPixmap(logo)
         logo_layout.addWidget(icon_label)
@@ -458,7 +458,7 @@ class SetupWindow(QDialog):
 
         layout.addSpacerItem(expanding_spacer)
         # Add dialog buttons
-        self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         self.connection_manager.connect(self.button_box.accepted, self.on_accepted)
         self.connection_manager.connect(self.button_box.rejected, self.reject)
         layout.addWidget(self.button_box)
@@ -468,39 +468,37 @@ class SetupWindow(QDialog):
         # Initiate checkbox
         if settings.value('json_path', "") == "":
             # Set tickbox to ticked and inactivate load json button
-            self.new_json_tickbox.setChecked(2)
-            self.json_button.setEnabled(False)
-            self.settings.setValue("new_json", True)
+            self.new_json_tickbox.setChecked(True)
         else:
             # Set tickbox to unticked and activate load json button
-            self.new_json_tickbox.setChecked(0)
-            self.json_button.setEnabled(True)
-            self.settings.setValue("new_json", False)
-
+            self.new_json_tickbox.setChecked(False)
 
         # Connect buttons to functions
         self.connection_manager.connect(self.json_button.clicked, self.select_json)
         self.connection_manager.connect(self.folder_button.clicked, self.select_image_folder)
         self.connection_manager.connect(self.new_json_tickbox.stateChanged, self.on_json_checkbox_changed)
 
-
         # Load previously selected files
         self.load_saved_files(settings)
+
+        QTimer.singleShot(0, self.on_json_checkbox_changed)
 
     def on_accepted(self):
         """
         Overwrite the default accept method to prevent the dialog from closing if the json file is not compatible.
         """
-
-        if not os.path.isdir(self.folder_label.text()):
+        if not os.path.isdir(self.folder_label.text()) and self.new_json_tickbox.isChecked():
+            print("No image folder selected", self.folder_label.text())
+            print("No image folder selected", self.new_json_tickbox.isChecked())
+            print(not os.path.isdir(self.folder_label.text()) and not self.new_json_tickbox.isChecked())
             self.generate_no_image_msg()
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
             return
         elif self.new_json_tickbox.isChecked():
             super().accept()
         elif not self.check_json_compatibility(self.json_label.text()):
             # Prevent the dialog from closing
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
             return
         else:
             super().accept()
@@ -515,19 +513,24 @@ class SetupWindow(QDialog):
         """
         When the new json checkbox is ticked, disable the json file dialog button and clear the json label.
         """
-        if self.sender().isChecked():
+        if self.new_json_tickbox.isChecked():
             self.json_button.setEnabled(True)
             self.json_label.setText("")
             self.settings.setValue("new_json", True)
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+            self.folder_label.setText(self.settings.value("image_path", ""))
+            self.folder_button.setEnabled(True)
+
+            if not self.check_json_compatibility(self.json_label.text()):
+                self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+            else:
+                self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
         else:
             self.json_label.setText(self.settings.value("json_path", ""))
+            self.folder_label.setText("")
             self.settings.setValue("new_json", False)
             self.json_button.setEnabled(True)
-            if not self.check_json_compatibility(self.json_label.text()):
-                self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
-            else:
-                self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.folder_button.setEnabled(False)
 
     def load_saved_files(self, settings: QSettings):
         """
@@ -546,7 +549,8 @@ class SetupWindow(QDialog):
         if folder_path:
             self.folder_label.setText(folder_path)
 
-    def save_file_paths(self, settings: str, json_path: str, folder_path: str):
+    @staticmethod
+    def save_file_paths(settings: QSettings, json_path: str, folder_path: str):
         """
         Update QSettings
 
@@ -572,7 +576,7 @@ class SetupWindow(QDialog):
         if json_path:
             self.json_label.setText(json_path)
             self.save_file_paths(self.settings, json_path, self.folder_label.text())
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
 
     def select_image_folder(self):
         """
@@ -599,7 +603,7 @@ class SetupWindow(QDialog):
                     self.folder_label.setText(folder_path)
                     self.save_file_paths(self.settings, self.json_label.text(), folder_path)
                     image_dir = folder_path
-                    self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+                    self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
                     if not self.new_json_tickbox.isChecked():
                         self.check_json_compatibility(self.json_label.text())
             else:
@@ -724,9 +728,11 @@ class SetupWindow(QDialog):
                     return False
 
             return True
-        else:
+        elif self.new_json_tickbox.isChecked():
             self.generate_no_image_msg()
             return False
+        else:
+            return True
 
     def check_json_compatibility(self, json_path: str) -> bool:
         """
@@ -739,18 +745,18 @@ class SetupWindow(QDialog):
         :rtype: bool
         """
         if os.path.isfile(json_path):
-            filenames, cboxes, cbox_values, rbs = load_json_filenames_findings(json_path)
+            filenames, cboxes, cbox_values, rbs = self.load_json_filenames_findings(json_path)
             dcm_compatible = self.check_json_image_compatibility(filenames)
             if dcm_compatible:
                 config_compatible = self.check_config_json_compatibility(cboxes, cbox_values, rbs)
                 if config_compatible:
-                    self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+                    self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
                     return True
         elif self.new_json_tickbox.isChecked():
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(True)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
             return True
         else:
-            self.button_box.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
             return False
 
     def closeEvent(self, event: QCloseEvent):
@@ -763,25 +769,130 @@ class SetupWindow(QDialog):
         self.connection_manager.disconnect_all()
         event.accept()
 
+    def load_json_filenames_findings(self, json_path: str):
+        """
+        Load the filenames and findings from a json file.
 
-def load_json_filenames_findings(json_path: str):
+        :param json_path: path to the json file
+        :type json_path: str
+        """
+
+        with open(json_path, 'r') as file:
+            data = json.load(file)
+
+        filenames = [entry['filename'] for entry in data['files']]
+        self.folder_label.setText(self.settings.value(data['image_directory'], self.folder_label.text()))
+        cboxes = [cbox for entry in data['files'] if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
+        cbox_values = [value for entry in data['files'] if 'checkboxes' in entry for value in entry['checkboxes'].values()]
+        radiobs = [rb for entry in data['files'] if 'radiobuttons' in entry for rb in entry['radiobuttons'].keys()]
+
+        unique_cboxes = sorted(list(set(cboxes)))
+        unique_cbox_values = sorted(list(set(cbox_values)))
+        unique_radiobs = sorted(list(set(radiobs)))
+
+        return filenames, unique_cboxes, unique_cbox_values, unique_radiobs
+
+
+class FileSelectionDialog(QDialog):
     """
-    Load the filenames and findings from a json file.
+    Dialog for selecting a file from a list of files.
 
-    :param json_path: path to the json file
-    :type json_path: str
+    :param file_list: list of files
+    :type file_list: List[str]
+    :param parent: parent widget
+    :type parent: Optional[QWidget]
     """
+    def __init__(self, file_list: List[str], parent: Optional[QWidget] = None):
+        """
+        Initialize the dialog.
 
-    with open(json_path, 'r') as file:
-        data = json.load(file)
+        :param file_list: list of files
+        :type file_list: List[str]
+        :param parent: parent widget
+        :type parent: Optional[QWidget]
+        """
+        super().__init__(parent)
+        self.setWindowTitle("Select Image")
 
-    filenames = [entry['filename'] for entry in data]
-    cboxes = [cbox for entry in data if 'checkboxes' in entry for cbox in entry['checkboxes'].keys()]
-    cbox_values = [value for entry in data if 'checkboxes' in entry for value in entry['checkboxes'].values()]
-    radiobs = [rb for entry in data if 'radiobuttons' in entry for rb in entry['radiobuttons'].keys()]
+        self.file_list = file_list
+        self.filtered_list = file_list
 
-    unique_cboxes = sorted(list(set(cboxes)))
-    unique_cbox_values = sorted(list(set(cbox_values)))
-    unique_radiobs = sorted(list(set(radiobs)))
+        self.layout = QVBoxLayout()
+        self.setLayout(self.layout)
 
-    return filenames, unique_cboxes, unique_cbox_values, unique_radiobs
+        self.search_bar = QLineEdit()
+        self.connection_manager = ConnectionManager()
+        self.connection_manager.connect(self.search_bar.textChanged, self.filter_list)
+        self.layout.addWidget(self.search_bar)
+
+        self.list_widget = QListWidget()
+        self.list_widget.addItems(self.file_list)
+        self.connection_manager.connect(self.list_widget.itemClicked, self.select_file)
+        self.connection_manager.connect(self.list_widget.itemDoubleClicked, self.select_and_accept_file)
+        self.layout.addWidget(self.list_widget)
+
+        self.buttonBox = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        self.connection_manager.connect(self.buttonBox.accepted, self.accept_file)
+        self.connection_manager.connect(self.buttonBox.rejected, self.reject)
+        self.layout.addWidget(self.buttonBox)
+
+        self.selected_file = None
+        self.adjust_size()
+
+    def adjust_size(self):
+        """
+        Adjust the size of the dialog to fit the list of files.
+        """
+        max_width = 0
+        fm = QFontMetrics(self.font())
+        for file in self.file_list:
+            width = fm.horizontalAdvance(file)
+            if width > max_width:
+                max_width = width
+        # Consider some padding
+        max_width += 50
+        height = 500
+        self.resize(max_width, height)
+
+    def filter_list(self, query):
+        """
+        Filter the list of files based on a query.
+
+        :param query: query to filter the list of files
+        :type query: str
+        """
+        self.filtered_list = [file for file in self.file_list if query.lower() in file.lower()]
+        self.list_widget.clear()
+        self.list_widget.addItems(self.filtered_list)
+
+    def select_file(self, item):
+        """
+        Select a file from the list of files.
+
+        :param item: item to select
+        :type item: QListWidgetItem
+        """
+        self.selected_file = item.text()
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+
+    def select_and_accept_file(self, item):
+        """
+        Select a file from the list of files and accept the dialog.
+
+        :param item: item to select
+        :type item: QListWidgetItem
+        """
+        self.selected_file = item.text()
+        self.buttonBox.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+        self.accept_file()
+
+    def accept_file(self):
+        """
+        Accept the dialog if a file is selected, otherwise reject it.
+        """
+        if self.selected_file is not None:
+            self.accept()
+        else:
+            self.reject()
+

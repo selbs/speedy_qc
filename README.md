@@ -1,19 +1,20 @@
-Speedy QC for Desktop <img src="https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
+Speedy QC for Desktop <img src="speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
 =====================
 
-Speedy QC is a DICOM viewer and customisable labeller for DICOM images. The program may be
+Speedy QC is a DICOM viewer and customisable labeller for DICOM and other types of images. The program may be
 used to quickly check the quality of the images and/or to label them with the required ground truth for
 training a deep learning model. Bounding boxes may be added to demarcate the findings.
 
 The program may be run from the command line or as an executable, which can be downloaded or 
 created from the source code.
 
-Primarily for use on Mac OS X, but should work on Linux and Windows.
+Primarily developed for use on Mac OS X, but should work on Linux and Windows.
 
-![Screenshot](https://github.com/selbs/speedy_qc/blob/master/speedy_qc/assets/screenshot.png)
+![Screenshot](speedy_qc/assets/screenshot.png)
 
-> **Warning:** Please note that this application is still in development and there may be unresolved bugs and issues. Use at your own risk!
-
+> **Warning:** Please note that this application is still in development and there may be unresolved bugs and issues. 
+> Use at your own risk!
+> 
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
@@ -92,19 +93,19 @@ Your progress through the folder of images is shown in the progress bar at the b
 
 ### Keyboard Shortcuts
 
-|                      Key                      |       Action       |
-|:---------------------------------------------:|:------------------:|
-|                 <kbd>B</kbd>                  |   Previous image   |
-|                 <kbd>N</kbd>                  |     Next image     |
-|          <kbd>+</kbd> / <kbd>=</kbd>          |      Zoom in       |
-|          <kbd>-</kbd> / <kbd>_</kbd>          |      Zoom out      |
-|                 <kbd>I</kbd>                  |  Invert grayscale  |
-|                 <kbd>R</kbd>                  | Rotate image right |
-|                 <kbd>L</kbd>                  | Rotate image left  |
-|                 <kbd>S</kbd>                  |    Save to CSV     |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> |        Quit        |
-|            <kbd>Cmd</kbd> + Scroll            |    Window Width    |
-|           <kbd>Shift</kbd> + Scroll           |   Window Center    |
+|                      Key                      |       Action        |
+|:---------------------------------------------:|:-------------------:|
+|                 <kbd>B</kbd>                  |   Previous image    |
+|       <kbd>N</kbd> or <kbd>Space</kbd>        |     Next image      |
+|          <kbd>+</kbd> / <kbd>=</kbd>          |       Zoom in       |
+|          <kbd>-</kbd> / <kbd>_</kbd>          |      Zoom out       |
+|                 <kbd>I</kbd>                  |   Invert colours    |
+|                 <kbd>R</kbd>                  | Rotate images right |
+|                 <kbd>L</kbd>                  | Rotate images left  |
+|                 <kbd>S</kbd>                  |        Save         |
+| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> |        Quit         |
+|            <kbd>Cmd</kbd> + Scroll            |      Contrast       |
+|           <kbd>Shift</kbd> + Scroll           |     Brightness      |
 
 Note: <kbd>Cmd</kbd> + Scroll and <kbd>Shift</kbd> + Scroll are only currently available on Mac OS X.
 
@@ -151,9 +152,8 @@ Executable Application
 ----------------------
 
 The executable application may be downloaded from:
-- Mac OS X:  https://github.com/selbs/speedy_qc/releases
-  - *Universal binary for both 86x64 (Intel) and arm64 (Apple Silicon) Macs*. 
-- Windows: [add link](https://www.example_link.com)
+- Mac OS X:  https://github.com/selbs/speedy_iqa/releases/
+- Windows: [TO DO](https://www.example_link.com)
 
 ### Creating an Executable
 
