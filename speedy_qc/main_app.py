@@ -75,6 +75,7 @@ class MainApp(QMainWindow):
         self.checkboxes = {}
         self.radiobuttons = {}
         self.ratiobuttons_boxes = {}
+        self.bboxes = {}
         self.colors = {}
         self.viewed_values = {}
         self.rotation = {}
@@ -1165,23 +1166,32 @@ class MainApp(QMainWindow):
                 self.notes[filename] = entry['notes']
 
                 if 'checkboxes' in entry:
-                    for cbox, value in entry['checkboxes'].items():
-                        if filename in self.checkbox_values:
-                            self.checkbox_values[filename][cbox] = value
-                        else:
-                            self.checkbox_values[filename] = {cbox: value}
+                    if len(entry['checkboxes'].keys()) > 0:
+                        for cbox, value in entry['checkboxes'].items():
+                            if filename in self.checkbox_values:
+                                self.checkbox_values[filename][cbox] = value
+                            else:
+                                self.checkbox_values[filename] = {cbox: value}
+                    else:
+                        self.checkbox_values[filename] = {}
 
                 if 'bboxes' in entry:
-                    for finding, coord_sets in entry['bboxes'].items():
-                        for coord_set in coord_sets:
-                            self.load_bounding_box(filename, finding, coord_set)
+                    if len(entry['bboxes'].keys()) > 0:
+                        for finding, coord_sets in entry['bboxes'].items():
+                            for coord_set in coord_sets:
+                                self.load_bounding_box(filename, finding, coord_set)
+                    else:
+                        self.bboxes[filename] = {}
 
                 if 'radiobuttons' in entry:
-                    for name, value in entry['radiobuttons'].items():
-                        if filename in self.radiobutton_values:
-                            self.radiobutton_values[filename][name] = value
-                        else:
-                            self.radiobutton_values[filename] = {name: value}
+                    if len(entry['radiobuttons'].keys()) > 0:
+                        for name, value in entry['radiobuttons'].items():
+                            if filename in self.radiobutton_values:
+                                self.radiobutton_values[filename][name] = value
+                            else:
+                                self.radiobutton_values[filename] = {name: value}
+                    else:
+                        self.radiobutton_values[filename] = {}
             return True
 
     def load_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float]):
