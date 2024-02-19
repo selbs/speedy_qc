@@ -644,6 +644,7 @@ class ConfigurationWizard(QWizard):
         self.config_data['backup_interval'] = self.backup_int_spinbox.value()
         self.config_data['backup_dir'] = self.backup_dir_edit.text()
         self.config_data['log_dir'] = self.log_dir_edit.text()
+        print("Log Dir: ",  self.config_data['log_dir'])
 
         save_path = os.path.join(resource_dir, filename)
 

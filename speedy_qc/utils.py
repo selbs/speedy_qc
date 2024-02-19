@@ -32,6 +32,7 @@ import numpy as np
 from PIL import Image
 
 
+print("main path:", os.path.abspath("__main__"))
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
@@ -40,7 +41,7 @@ elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
 else:
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
-
+print("utils.py resource_dir:", resource_dir)
 
 class Connection:
     """
