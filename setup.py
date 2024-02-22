@@ -39,5 +39,9 @@ setup(
         "matplotlib>=3.4.3",
         "imageio>=2.31.0",
         "pillow>=10.0.0",
+        "pandas>=1.3.3",
+        "install>=1.3.5",
+        "flit-core>=3.6.0",
+        "Bottleneck>=1.3.5",
     ],
 )
