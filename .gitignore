@@ -89,3 +89,9 @@ celerybeat-schedule
 
 # Pycharm files
 .idea/
+
+# Config files
+!/speedy_qc/config_chexpert.yml
+!/speedy_qc/config_quality.yml
+!/speedy_qc/config.yml
+!/speedy_qc/config_*.yml
