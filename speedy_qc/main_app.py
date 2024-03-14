@@ -1208,6 +1208,10 @@ class MainApp(QMainWindow):
         """
         bbx, bby, bbw, bbh = raw_rect
         color = self.colors[finding]
+        if finding in self.bboxes:
+            bbox_id = len(self.bboxes[file][finding])
+        else:
+            bbox_id = 0
         bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color)
         if finding in self.bboxes:
             self.bboxes[file][finding].append(bbox_item)
@@ -1215,17 +1219,14 @@ class MainApp(QMainWindow):
             self.bboxes[file][finding] = [bbox_item]
         self.connection_manager.connect(bbox_item.removed, self.remove_bounding_box)
 
-    def remove_bounding_box(self, bbox_item):
+    def remove_bounding_box(self):
         """
         Removes a bounding box from the image view.
 
         :param bbox_item: The bounding box item to remove
         :type bbox_item: BoundingBoxItem
         """
-        for finding, bboxes in self.bboxes[self.file_list[self.current_index]].items():
-            if bbox_item in bboxes:
-                self.bboxes[self.file_list[self.current_index]][finding].remove(bbox_item)
-                break
+        self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
 
     def on_checkbox_changed(self, state: int):
         """
