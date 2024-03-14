@@ -40,6 +40,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setAcceptHoverEvents(True)
         self.setPen(QPen(color, 5))
+        self.parent = parent
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         """
@@ -52,8 +53,8 @@ class BoundingBoxItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == remove_action:
-            self.scene().removeItem(self)
-            self.removed.emit()
+            self.parent.scene().removeItem(self)
+            self.parent.rect_items[self.parent.current_finding].remove(self)
 
     def rotate(self, rotation_angle: float, center: QPointF):
         """

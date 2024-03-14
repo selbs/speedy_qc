@@ -1212,7 +1212,7 @@ class MainApp(QMainWindow):
             bbox_id = len(self.bboxes[file][finding])
         else:
             bbox_id = 0
-        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color)
+        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color, self.image_view)
         if finding in self.bboxes:
             self.bboxes[file][finding].append(bbox_item)
         else:
