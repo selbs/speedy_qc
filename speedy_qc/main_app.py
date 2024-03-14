@@ -29,7 +29,7 @@ from functools import partial
 
 from speedy_qc.windows import AboutMessageBox, FileSelectionDialog
 from speedy_qc.utils import ConnectionManager, open_yml_file, setup_logging, bytescale, convert_to_checkstate
-from speedy_qc.graphics import CustomGraphicsView, BoundingBoxItem
+from speedy_qc.graphics import CustomGraphicsView, BoundingBoxItem, SignalMediator
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -1208,11 +1208,24 @@ class MainApp(QMainWindow):
         """
         bbx, bby, bbw, bbh = raw_rect
         color = self.colors[finding]
-        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color, self.image_view)
+        mediator = SignalMediator()
+        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color, mediator)
         if finding in self.bboxes:
             self.bboxes[file][finding].append(bbox_item)
         else:
             self.bboxes[file][finding] = [bbox_item]
+        self.connection_manager.connect(mediator.removed, self.handle_removed_bbox)
+
+    def handle_removed_bbox(self, bbox):
+        """
+        Handle the removal of a bounding box item.
+
+        :param bbox: The bounding box item that was removed.
+        """
+        for finding, bboxes in self.bboxes[self.file_list[self.current_index]].items():
+            if bbox in bboxes:
+                bboxes.remove(bbox)
+                break
 
     def on_checkbox_changed(self, state: int):
         """
