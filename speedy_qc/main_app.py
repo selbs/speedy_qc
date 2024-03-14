@@ -1213,6 +1213,19 @@ class MainApp(QMainWindow):
             self.bboxes[file][finding].append(bbox_item)
         else:
             self.bboxes[file][finding] = [bbox_item]
+        self.connection_manager.connect(bbox_item.removed, self.remove_bounding_box)
+
+    def remove_bounding_box(self, bbox_item):
+        """
+        Removes a bounding box from the image view.
+
+        :param bbox_item: The bounding box item to remove
+        :type bbox_item: BoundingBoxItem
+        """
+        for finding, bboxes in self.bboxes[self.file_list[self.current_index]].items():
+            if bbox_item in bboxes:
+                self.bboxes[self.file_list[self.current_index]][finding].remove(bbox_item)
+                break
 
     def on_checkbox_changed(self, state: int):
         """
