@@ -24,7 +24,7 @@ class BoundingBoxItem(QGraphicsRectItem):
     Methods:
         - contextMenuEvent: Show a context menu when the bounding box is right-clicked, allowing them to be removed.
     """
-    removed = pyqtSignal()
+    removed = pyqtSignal(object)
 
     def __init__(self, rect, color, parent=None):
         """
@@ -40,7 +40,6 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setAcceptHoverEvents(True)
         self.setPen(QPen(color, 5))
-        self.parent = parent
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         """
@@ -53,8 +52,8 @@ class BoundingBoxItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == remove_action:
-            self.parent.scene().removeItem(self)
-            self.parent.rect_items[self.parent.current_finding].remove(self)
+            self.scene().removeItem(self)
+            self.removed.emit(self)
 
     def rotate(self, rotation_angle: float, center: QPointF):
         """
@@ -175,7 +174,19 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[self.current_finding].append(self.start_rect)
                 else:
                     self.rect_items[self.current_finding] = [self.start_rect]
+                self.start_rect.removed.connect(self.handle_removed_bbox)
         super().mousePressEvent(event)
+
+    def handle_removed_bbox(self, bbox):
+        """
+        Handle the removal of a bounding box item.
+
+        :param bbox: The bounding box item that was removed.
+        """
+        for finding, bboxes in self.rect_items.items():
+            if bbox in bboxes:
+                bboxes.remove(bbox)
+                break
 
     def mouseMoveEvent(self, event: QMouseEvent):
         """
