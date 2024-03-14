@@ -1208,11 +1208,12 @@ class MainApp(QMainWindow):
         """
         bbx, bby, bbw, bbh = raw_rect
         color = self.colors[finding]
-        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color, self.remove_bounding_box)
+        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color)
         if finding in self.bboxes:
             self.bboxes[file][finding].append(bbox_item)
         else:
             self.bboxes[file][finding] = [bbox_item]
+        self.connection_manager.connect(bbox_item.removed, self.remove_bounding_box)
 
     def remove_bounding_box(self, bbox_item):
         """
