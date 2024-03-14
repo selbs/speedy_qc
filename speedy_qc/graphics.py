@@ -24,7 +24,7 @@ class BoundingBoxItem(QGraphicsRectItem):
     Methods:
         - contextMenuEvent: Show a context menu when the bounding box is right-clicked, allowing them to be removed.
     """
-    removed = pyqtSignal(object)
+    removed = pyqtSignal()
 
     def __init__(self, rect, color, parent=None):
         """
