@@ -16,6 +16,10 @@ from speedy_qc.utils import ConnectionManager
 import math
 
 
+class SignalMediator(QObject):
+    removed = pyqtSignal(object)
+
+
 class BoundingBoxItem(QGraphicsRectItem):
     """
     Custom graphics item to handle drawing bounding boxes on images.
@@ -26,7 +30,7 @@ class BoundingBoxItem(QGraphicsRectItem):
     """
     removed = pyqtSignal(object)
 
-    def __init__(self, rect, color, parent=None):
+    def __init__(self, rect, color, mediator=None, parent=None):
         """
         Initializes a new BoundingBoxItem with the given rectangle, color, and optional parent item.
 
@@ -40,6 +44,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setAcceptHoverEvents(True)
         self.setPen(QPen(color, 5))
+        self.mediator = mediator
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
         """
@@ -52,7 +57,7 @@ class BoundingBoxItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == remove_action:
-            self.removed.emit(self)
+            self.mediator.removed.emit(self)
             self.scene().removeItem(self)
 
     def rotate(self, rotation_angle: float, center: QPointF):
@@ -130,6 +135,8 @@ class CustomGraphicsView(QGraphicsView):
 
         self.touch_points = []
         self.rect_items = {}
+        self.mediator = SignalMediator()
+        self.connection_manager.connect(self.mediator.removed, self.handle_removed_bbox)
 
         if main_window:
             self.connection_manager.connect(parent.resized, self.on_main_window_resized)
@@ -168,13 +175,12 @@ class CustomGraphicsView(QGraphicsView):
             if self.scene() and self.current_finding:
                 pos = self.mapToScene(event.position().toPoint())
                 color = self.current_color
-                self.start_rect = BoundingBoxItem(QRectF(pos, QSizeF(0, 0)), color)
+                self.start_rect = BoundingBoxItem(QRectF(pos, QSizeF(0, 0)), color, mediator=self.mediator)
                 self.scene().addItem(self.start_rect)
                 if self.current_finding in self.rect_items:
                     self.rect_items[self.current_finding].append(self.start_rect)
                 else:
                     self.rect_items[self.current_finding] = [self.start_rect]
-                self.start_rect.removed.connect(self.handle_removed_bbox)
         super().mousePressEvent(event)
 
     def handle_removed_bbox(self, bbox):
