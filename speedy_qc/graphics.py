@@ -52,8 +52,8 @@ class BoundingBoxItem(QGraphicsRectItem):
         selected_action = menu.exec(event.screenPos())
 
         if selected_action == remove_action:
-            self.scene().removeItem(self)
             self.removed.emit(self)
+            self.scene().removeItem(self)
 
     def rotate(self, rotation_angle: float, center: QPointF):
         """
