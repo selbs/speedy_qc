@@ -70,7 +70,7 @@ class AboutMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # Add the icon to the left side of the message box using a QLabel
-        path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
+        path = os.path.normpath(os.path.join(resource_dir, 'assets/3x/white_panel@3x.png'))
         grey_logo = QPixmap(path).scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio)
         icon_label = QLabel()
         icon_label.setPixmap(grey_logo)
@@ -189,7 +189,7 @@ class LoadMessageBox(QDialog):
         left_layout = QVBoxLayout()
 
         # path = pkg_resources.resource_filename('speedy_qc', 'assets/3x/white@3x.png')
-        path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
+        path = os.path.normpath(os.path.join(resource_dir, 'assets/3x/white_panel@3x.png'))
         logo = QPixmap(path).scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio)
 
         # Create a QLabel to display the logo
@@ -297,7 +297,7 @@ class LoadMessageBox(QDialog):
         :param conf_name: The name of the selected config file
         :type conf_name: str
         """
-        self.settings.setValue("last_config_file", os.path.join(resource_dir, conf_name))
+        self.settings.setValue("last_config_file", os.path.normpath(os.path.join(resource_dir, conf_name)))
 
     def closeEvent(self, event: QCloseEvent):
         """
@@ -370,7 +370,7 @@ class SetupWindow(QDialog):
 
         logo_layout.addItem(spacer)
 
-        path = os.path.join(resource_dir, 'assets/2x/white_panel@2x.png')
+        path = os.path.normpath(os.path.join(resource_dir, 'assets/2x/white_panel@2x.png'))
         logo = QPixmap(path).scaled(150, 150, Qt.AspectRatioMode.KeepAspectRatio)
         icon_label = QLabel()
         icon_label.setPixmap(logo)

@@ -881,11 +881,11 @@ class ConfigurationWizard(QWizard):
             self.settings.setValue('tristate_checkboxes', self.tristate_checkboxes)
 
             # Save the config file
-            with open(os.path.join(os.path.abspath(resource_dir), self.config_filename), 'w') as f:
+            with open(os.path.normpath(os.path.join(os.path.abspath(resource_dir), self.config_filename)), 'w') as f:
                 yaml.dump(self.config_data, f)
 
             # Makes a log of the new configuration
-            logger.info(f"Configuration saved to {os.path.join(resource_dir, self.config_filename)}")
+            logger.info(f"Configuration saved to {os.path.normpath(os.path.join(resource_dir, self.config_filename))}")
             # super().close()
 
         else:

@@ -108,8 +108,8 @@ def create_default_config() -> Dict:
         ],
         'radiobuttons': [{'title': "Radiobuttons", 'labels': [1, 2, 3, 4]}, ],
         'max_backups': 10,
-        'backup_dir': os.path.expanduser('~/speedy_qc/backups'),
-        'log_dir': os.path.expanduser('~/speedy_qc/logs'),
+        'backup_dir': os.path.normpath(os.path.abspath(os.path.expanduser('~/speedy_qc/backups'))),
+        'log_dir': os.path.normpath(os.path.abspath(os.path.expanduser('~/speedy_qc/logs'))),
         'tristate_checkboxes': True,
         'backup_interval': 5,
     }

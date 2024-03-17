@@ -293,7 +293,7 @@ class ConfigurationWizard(QWizard):
 
         # Set the logo pixmap
 
-        icon_path = os.path.join(resource_dir, 'assets/3x/white_panel@3x.png')
+        icon_path = os.path.normpath(os.path.join(resource_dir, 'assets/3x/white_panel@3x.png'))
         pixmap = QPixmap(icon_path)
         self.setPixmap(QWizard.WizardPixmap.LogoPixmap, pixmap.scaled(320, 320, Qt.AspectRatioMode.KeepAspectRatio))
 
@@ -304,8 +304,8 @@ class ConfigurationWizard(QWizard):
 
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_interval = self.config_data.get('backup_interval', 5)
-        self.backup_dir = self.config_data.get('backup_dir', os.path.expanduser('~/speedy_qc/backups'))
-        self.log_dir = self.config_data.get('log_dir', os.path.expanduser('~/speedy_qc/logs'))
+        self.backup_dir = self.config_data.get('backup_dir', os.path.normpath(os.path.expanduser('~/speedy_qc/backups')))
+        self.log_dir = self.config_data.get('log_dir', os.path.normpath(os.path.expanduser('~/speedy_qc/logs')))
         self.tristate_checkboxes = bool(self.config_data.get('tristate_checkboxes', False))
 
         self.input_option_checkboxes = {}
@@ -510,7 +510,7 @@ class ConfigurationWizard(QWizard):
         # Create a widget for the log directory
         log_dir_label = QLabel("Log Directory:")
         self.log_dir_edit = QLineEdit()
-        self.log_dir_edit.setText(self.settings.value("log_dir", os.path.expanduser(self.log_dir)))
+        self.log_dir_edit.setText(self.settings.value("log_dir", os.path.normpath(os.path.expanduser(self.log_dir))))
         self.backup_layout.addWidget(log_dir_label)
         self.backup_layout.addWidget(self.log_dir_edit)
 
@@ -519,7 +519,7 @@ class ConfigurationWizard(QWizard):
 
         backup_dir_label = QLabel("Backup Directory:")
         self.backup_dir_edit = QLineEdit()
-        self.backup_dir_edit.setText(self.settings.value("backup_dir", os.path.expanduser(self.backup_dir)))
+        self.backup_dir_edit.setText(self.settings.value("backup_dir", os.path.normpath(os.path.expanduser(self.backup_dir))))
         self.backup_layout.addWidget(backup_dir_label)
         self.backup_layout.addWidget(self.backup_dir_edit)
 
@@ -646,8 +646,8 @@ class ConfigurationWizard(QWizard):
         self.config_data['tristate_checkboxes'] = self.tristate_checkboxes
         self.config_data['max_backups'] = self.backup_spinbox.value()
         self.config_data['backup_interval'] = self.backup_int_spinbox.value()
-        self.config_data['backup_dir'] = self.backup_dir_edit.text()
-        self.config_data['log_dir'] = self.log_dir_edit.text()
+        self.config_data['backup_dir'] = os.path.normpath(os.path.abspath(self.backup_dir_edit.text()))
+        self.config_data['log_dir'] = os.path.normpath(os.path.abspath(self.log_dir_edit.text()))
         print("Log Dir: ",  self.config_data['log_dir'])
 
         save_path = os.path.join(resource_dir, filename)

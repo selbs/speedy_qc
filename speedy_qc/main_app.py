@@ -366,7 +366,7 @@ class MainApp(QMainWindow):
             Qt.Key.Key_Space,
             Qt.Key.Key_N,
         ])
-        self.nextUnratedAction = QAction(self.icons['next_unrated'], "Next Unrated Image", self)
+        self.nextUnratedAction = QAction(self.icons['next_unrated'], "Next Unviewed Image", self)
         self.nextUnratedAction.setShortcuts([
             QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_Right),
             QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_Space),
@@ -619,7 +619,7 @@ class MainApp(QMainWindow):
             return open_yml_file(self.config_file)
         else:
             last_config_file = os.path.normpath(
-                self.settings.value("last_config_file", os.path.join(resource_dir, "config.yml"))
+                self.settings.value("last_config_file", os.path.normpath(os.path.join(resource_dir, "config.yml")))
             )
             return open_yml_file(last_config_file)
 
@@ -707,7 +707,7 @@ class MainApp(QMainWindow):
         """
         Loads the image file and applies the look-up tables.
         """
-        file_path = os.path.join(self.dir_path, self.file_list[self.current_index])
+        file_path = os.path.normpath(os.path.join(self.dir_path, self.file_list[self.current_index]))
         file_extension = os.path.splitext(file_path)[1]
 
         try:
@@ -1045,7 +1045,7 @@ class MainApp(QMainWindow):
         self.page1.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.stack.addWidget(self.page1)
 
-        self.next_unviewed_button = QPushButton('Next Unrated', clicked=self.next_unrated_image)
+        self.next_unviewed_button = QPushButton('Next Unviewed', clicked=self.next_unrated_image)
         self.next_unviewed_button.setStyleSheet("font-size: 14px;")
         self.page1_layout.addWidget(self.next_unviewed_button)
 
@@ -1416,12 +1416,12 @@ class MainApp(QMainWindow):
         :return: Whether the load was successful
         :rtype: bool
         """
-        self.settings.setValue("default_directory", os.path.dirname(self.json_path))
+        self.settings.setValue("default_directory", os.path.normpath(os.path.dirname(self.json_path)))
         with open(self.json_path, 'r') as file:
             data = json.load(file)
 
         self.file_list = [entry['filename'] for entry in data['files']]
-        self.dir_path = data['image_directory']
+        self.dir_path = os.path.normpath(data['image_directory'])
         self.config = data['config']
         # self.settings.setValue("last_config_file", os.path.join(resource_dir, self.config_file))
 
