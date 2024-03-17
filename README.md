@@ -1,4 +1,4 @@
-Speedy QC <img src="speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
+Speedy QC <img src="speedy_qc/assets/1x/grey.png" alt="App Logo" width="75" style="float: right;">
 =====================
 
 Speedy QC is a customisable annotation tool for medical images. Originally developed for 
