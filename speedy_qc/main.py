@@ -21,23 +21,69 @@ Usage:
 
 import sys
 import os
+
+
+def configure_qt_environment():
+    """
+    Configures the environment for PyQt6 to ensure it uses the Qt version from the virtual environment.
+
+    :return: None
+    """
+    # Assuming this script is run within a virtual environment, locate the site-packages directory.
+    venv_path = sys.prefix
+    bin_path = os.path.join(venv_path, 'bin')
+    qt_path = None
+    if os.path.isdir(os.path.join(venv_path, 'lib', 'python' + sys.version[:3], 'site-packages', 'PyQt6', 'Qt6')):
+        qt_path = os.path.join(venv_path, 'lib', 'python' + sys.version[:3], 'site-packages', 'PyQt6', 'Qt6')
+    elif os.path.isdir(os.path.join(venv_path, 'lib', 'site-packages', 'PyQt6', 'Qt6')):
+        qt_path = os.path.join(venv_path, 'lib', 'site-packages', 'PyQt6', 'Qt6')
+    elif os.path.isdir(os.path.join(venv_path, 'lib', 'PyQt6', 'Qt')):
+        qt_path = os.path.join(venv_path, 'lib', 'PyQt6', 'Qt')
+
+    qt_plugin_path = os.path.join(qt_path, 'plugins') if qt_path is not None else None
+
+    # Set the QT_PLUGIN_PATH environment variable to the PyQt6 plugins directory.
+    os.environ['PATH'] = bin_path
+    os.environ['QTDIR'] = qt_path
+    os.environ['QT_PLUGIN_PATH'] = qt_plugin_path
+
+
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
 from qt_material import apply_stylesheet
 
 from speedy_qc.main_app import MainApp
-from speedy_qc.wizard import ConfigurationWizard
+# from speedy_qc.wizard import ConfigurationWizard
+from speedy_qc.unified_wizard import ConfigurationWizard
 from speedy_qc.windows import LoadMessageBox, SetupWindow
+
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
+elif 'main.py' in os.listdir(os.path.dirname(os.path.realpath(__file__))):
+    resource_dir = os.path.dirname(os.path.realpath(__file__))
 elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
-else:
+elif 'main.py' in os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc'):
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
+else:
+    raise(FileNotFoundError(f"Resource directory not found from {os.path.dirname(os.path.abspath('__main__'))}"))
+
+resource_dir = os.path.normpath(resource_dir)
+
+
+def qt_message_handler(mode, context, message):
+    if "no target window" in message:
+        return  # Filter out the specific warning
+    else:
+        # Default behavior for other messages
+        sys.stderr.write(f"{message}\n")
+
+
+qInstallMessageHandler(qt_message_handler)
 
 
 def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawesome'):
@@ -104,55 +150,80 @@ def main(theme='qt_material', material_theme='dark_blue.xml', icon_theme='qtawes
     # Create the application
     app = QApplication(sys.argv)
 
+    settings = QSettings('SpeedyQC', 'DicomViewer')
+
     # Set the application theme
     if theme == 'qt_material':
-        apply_stylesheet(app, theme=material_theme)
+        if material_theme is None:
+            material_theme = settings.value('theme', 'dark_blue.xml')
+        else:
+            settings.setValue('theme', material_theme)
+        apply_stylesheet(app, theme=material_theme, extra={})
     else:
         app.setStyle(QStyleFactory.create(theme))
 
     # Set the application icon theme
     QIcon.setThemeName(icon_theme)
 
-    # Create the initial dialog box
-    load_msg_box = LoadMessageBox()
-    result = load_msg_box.exec()
-    config_file = load_msg_box.config_combo.currentText()
-    print("main", config_file)
-    load_msg_box.save_last_config(config_file)
+    while True:
 
-    settings = QSettings('SpeedyQC', 'DicomViewer')
+        # Create the initial dialog box
+        load_msg_box = LoadMessageBox()
+        result = load_msg_box.exec()
+        # config_filename = load_msg_box.config_combo.currentText()
+        # print("main", config_file)
+        # load_msg_box.save_last_config(config_filename)
 
-    # User selects to `Ok` -> load the load dialog box
-    if result == load_msg_box.DialogCode.Accepted:
-        # If the user selects to `Ok`, load the dialog to select the dicom directory
-        setup_window = SetupWindow(settings)
-        result = setup_window.exec()
+        # User selects to `Ok` -> load the load dialog box
+        if result == load_msg_box.DialogCode.Accepted:
+            # If the user selects to `Ok`, load the dialog to select the dicom directory
+            setup_window = SetupWindow(settings)
+            result = setup_window.exec()
 
-        if result == setup_window.DialogCode.Accepted:
-            # Create the main window and pass the dicom directory
-            window = MainApp(settings)
-            window.show()
-        else:
+            if result == setup_window.DialogCode.Accepted:
+                # Create the main window and pass the dicom directory
+                window = MainApp(app, settings, True)
+                if not window.should_quit:
+                    window.show()
+                    break
+                else:
+                    cleanup()
+                    sys.exit()
+            else:
+                continue
+                # cleanup()
+                # sys.exit()
+
+        # User selects to `Cancel` -> exit the application
+        elif result == load_msg_box.DialogCode.Rejected:
             cleanup()
             sys.exit()
 
-    # User selects to `Cancel` -> exit the application
-    elif result == load_msg_box.DialogCode.Rejected:
-        cleanup()
-        sys.exit()
-
-    # User selects to `Conf. Wizard` -> show the ConfigurationWizard
-    else:
-        if hasattr(sys, '_MEIPASS'):
-            # This is a py2app executable
-            resource_dir = sys._MEIPASS
-        elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
-            # This is a regular Python script
-            resource_dir = os.path.dirname(os.path.abspath("__main__"))
+        # User selects to `Conf. Wizard` -> show the ConfigurationWizard
         else:
-            resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
-        wizard = ConfigurationWizard(os.path.join(resource_dir, config_file))
-        wizard.show()
+            if hasattr(sys, '_MEIPASS'):
+                # This is a py2app executable
+                resource_dir = sys._MEIPASS
+            elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
+                # This is a regular Python script
+                resource_dir = os.path.dirname(os.path.abspath("__main__"))
+            else:
+                resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
+            resource_dir = os.path.normpath(resource_dir)
+            wizard = ConfigurationWizard(settings.value("last_config_file", os.path.join(resource_dir, "config.yml")))
+            result = wizard.exec()
+            if result == 1:
+                # Create the main window and pass the dicom directory
+                window = MainApp(app, settings, False)
+                if not window.should_quit:
+                    window.show()
+                    break
+                else:
+                    cleanup()
+                    sys.exit()
+            else:
+                cleanup()
+                sys.exit()
 
     exit_code = app.exec()
     cleanup()

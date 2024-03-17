@@ -11,9 +11,8 @@ Classes:
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
 from PyQt6.QtWidgets import *
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Union
 from speedy_qc.utils import ConnectionManager
-import math
 
 
 class SignalMediator(QObject):
@@ -69,32 +68,33 @@ class BoundingBoxItem(QGraphicsRectItem):
         :param center: QPointF, the center point to rotate the bounding box around
         :type center: QPointF
         """
-        rect = self.rect()
-        rect_center = rect.center()
-
-        # Translate rect center to the origin
-        rect_center -= QPointF(center.x(), center.y())
-
-        # Rotate rect center around the origin
-        angle_rad = math.radians(rotation_angle)
-        new_x = rect_center.x() * math.cos(angle_rad) - rect_center.y() * math.sin(angle_rad)
-        new_y = rect_center.x() * math.sin(angle_rad) + rect_center.y() * math.cos(angle_rad)
-
-        # Translate rect center back to its original position
-        new_center = QPointF(new_x, new_y) + QPointF(center.x(), center.y())
-
-        # Swap the width and height of the bounding box if the rotation angle is 90 or 270 degrees
-        if rotation_angle % 180 != 0:
-            new_width = rect.height()
-            new_height = rect.width()
-            rect.setWidth(new_width)
-            rect.setHeight(new_height)
-
-        # Set the new rect center
-        rect.moveCenter(new_center)
-
-        # Update the bounding box rect
-        self.setRect(rect)
+        # rect = self.rect()
+        # rect_center = rect.center()
+        #
+        # # Translate rect center to the origin
+        # rect_center -= QPointF(center.x(), center.y())
+        #
+        # # Rotate rect center around the origin
+        # angle_rad = math.radians(rotation_angle)
+        # new_x = rect_center.x() * math.cos(angle_rad) - rect_center.y() * math.sin(angle_rad)
+        # new_y = rect_center.x() * math.sin(angle_rad) + rect_center.y() * math.cos(angle_rad)
+        #
+        # # Translate rect center back to its original position
+        # new_center = QPointF(new_x, new_y) + QPointF(center.x(), center.y())
+        #
+        # # Swap the width and height of the bounding box if the rotation angle is 90 or 270 degrees
+        # if rotation_angle % 180 != 0:
+        #     new_width = rect.height()
+        #     new_height = rect.width()
+        #     rect.setWidth(new_width)
+        #     rect.setHeight(new_height)
+        #
+        # # Set the new rect center
+        # rect.moveCenter(new_center)
+        #
+        # # Update the bounding box rect
+        # self.setRect(rect)
+        self.rotate(rotation_angle, center)
 
 
 class CustomGraphicsView(QGraphicsView):
@@ -116,17 +116,19 @@ class CustomGraphicsView(QGraphicsView):
         - remove_all_bounding_boxes (self): Remove all bounding boxes from the scene.
         - add_bboxes (self, rect_items: dict): Add previously drawn bounding boxes to the scene.
     """
-    def __init__(self, parent: Optional[QWidget] = None, main_window = False):
+    def __init__(self, parent=None, main_window=False):
         """
         Initialize the custom graphics view.
         """
         super().__init__()
         # self.connections = {}
         self.connection_manager = ConnectionManager()
+
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontAdjustForAntialiasing, True)
         self.setOptimizationFlag(QGraphicsView.OptimizationFlag.DontSavePainterState, True)
         self.setViewportUpdateMode(QGraphicsView.ViewportUpdateMode.FullViewportUpdate)
+        # self.setTransformationAnchor(QGraphicsView.ViewportAnchor.AnchorViewCenter)
         self.zoom = 1.0
         self.start_rect = None
         self.current_finding = None
@@ -163,6 +165,7 @@ class CustomGraphicsView(QGraphicsView):
         """
         if self.scene() and self.scene().items():
             self.fitInView(self.scene().items()[-1].boundingRect(), Qt.AspectRatioMode.KeepAspectRatio)
+            self.setSceneRect(self.scene().items()[-1].boundingRect())
             self.scale(self.zoom, self.zoom)
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -252,6 +255,3 @@ class CustomGraphicsView(QGraphicsView):
                     self.rect_items[finding].append(bbox)
                 else:
                     self.rect_items[finding] = [bbox]
-
-
-

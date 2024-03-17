@@ -1,14 +1,15 @@
-Speedy QC for Desktop <img src="speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
+Speedy QC <img src="speedy_qc/assets/1x/grey.png" alt="App Logo" width="200" style="float: right;">
 =====================
 
-Speedy QC is a DICOM viewer and customisable labeller for DICOM and other types of images. The program may be
-used to quickly check the quality of the images and/or to label them with the required ground truth for
-training a deep learning model. Bounding boxes may be added to demarcate the findings.
+Speedy QC is a customisable annotation tool for medical images. Originally developed for 
+image quality control (QC) of machine learning datasets, the application may be
+used to quickly check the quality of the images and/or to label them with ground truth. The viewer
+supports DICOM, PNG, JPEG and other common image formats. Bounding boxes may be added to demarcate the findings.
 
 The program may be run from the command line or as an executable, which can be downloaded or 
-created from the source code.
+created from the source code (instructions below).
 
-Primarily developed for use on Mac OS X, but should work on Linux and Windows.
+Primarily developed for use on Mac OS X, but also compatible with Linux and Windows.
 
 ![Screenshot](speedy_qc/assets/screenshot.png)
 
@@ -93,50 +94,47 @@ Your progress through the folder of images is shown in the progress bar at the b
 
 ### Keyboard Shortcuts
 
-|                      Key                      |       Action        |
-|:---------------------------------------------:|:-------------------:|
-|                 <kbd>B</kbd>                  |   Previous image    |
-|       <kbd>N</kbd> or <kbd>Space</kbd>        |     Next image      |
-|          <kbd>+</kbd> / <kbd>=</kbd>          |       Zoom in       |
-|          <kbd>-</kbd> / <kbd>_</kbd>          |      Zoom out       |
-|                 <kbd>I</kbd>                  |   Invert colours    |
-|                 <kbd>R</kbd>                  | Rotate images right |
-|                 <kbd>L</kbd>                  | Rotate images left  |
-|                 <kbd>S</kbd>                  |        Save         |
-| <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>Q</kbd> |        Quit         |
-|            <kbd>Cmd</kbd> + Scroll            |      Contrast       |
-|           <kbd>Shift</kbd> + Scroll           |     Brightness      |
+|                                                                Key                                                                 |       Action        |
+|:----------------------------------------------------------------------------------------------------------------------------------:|:-------------------:|
+|                             <kbd>←</kbd>, <kbd>B</kbd>, <kbd>Back</kbd>, <kbd>⌫</kbd>, <kbd>DEL</kbd>                              |   Previous image    |
+|                                     <kbd>→</kbd>, <kbd>↵</kbd>, <kbd>N</kbd>, <kbd>Space</kbd>                                     |     Next image      |
+| <kbd>⌘</kbd> /<kbd>Ctrl</kbd><kbd>→</kbd>, <kbd>⌘</kbd> /<kbd>Ctrl</kbd><kbd>N</kbd>, <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>Space</kbd> | Next unviewed image |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>F</kbd>                                              |     Go to image     |
+|                                                     <kbd>+</kbd>, <kbd>=</kbd>                                                     |       Zoom in       |
+|                                                     <kbd>-</kbd>, <kbd>_</kbd>                                                     |      Zoom out       |
+|                                                            <kbd>I</kbd>                                                            |  Invert greyscale   |
+|                                               <kbd>⌘</kbd>/<kbd>Ctrl</kbd> + Scroll                                                |    Window width     |
+|                                                       <kbd>⇧</kbd> + Scroll                                                        |    Window centre    |
+|                                                            <kbd>W</kbd>                                                            |   Reset windowing   |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>W</kbd>                                              |   Auto-windowing    |
+|                                                            <kbd>R</kbd>                                                            | Rotate images right |
+|                                                            <kbd>L</kbd>                                                            | Rotate images left  |
+|                                    <kbd>1</kbd>, <kbd>2</kbd>, <kbd>3</kbd>, <kbd>4</kbd>, etc                                     | Select radiobutton  |
+|                                                            <kbd>S</kbd>                                                            |        Save         |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>S</kbd>                                              |       Save as       |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>E</kbd>                                              |    Export to CSV    |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>Q</kbd>                                              |        Quit         |
+|                                              <kbd>⌘</kbd>/<kbd>Ctrl</kbd><kbd>T</kbd>                                              |     Reset Theme     |
 
-Note: <kbd>Cmd</kbd> + Scroll and <kbd>Shift</kbd> + Scroll are only currently available on Mac OS X.
+
+Note: <kbd>⌘</kbd> + Scroll and <kbd>⇧</kbd> + Scroll are only currently available on Mac OS X.
 
 Customisation
 -------------
 
 The program can be customised to suit the user's needs. The following options are available:
 - Select which checkboxes are required
-- Select whether checkboxes can be set to 'uncertain' (i.e. 1 - see above)
+- Select whether checkboxes can be set to 'uncertain' (i.e. 1 - see above / tristate checkboxes)
 - Select whether radiobuttons are required
 - Change the maximum number of backups
 - Backup frequency in minutes
 - Change the backup directory
 - Change the log directory
 
-### Configuration Wizard
-
-The configuration wizard can be run from the opening dialog of the app.
-
-If installed by pip, the configuration wizard can also be run from the command line using the following:
-
-```bash
-speedy_config
-```
-
 ### YAML File
 
 These configuration settings are stored in the `config.yml` file in the `speedy_qc` directory. This
-can be edited directly if desired. If you're using an executable, the `config.yml` file can be edited in 
-`Speedy QC.app/Contents/Resources/config.yml`, which accessible through the terminal or if using Mac OS X, by
-right-clicking on the executable and selecting `Show Package Contents`.
+can be edited directly if desired or a new version can be created and loaded when starting a new annotation project.
 
 
 Backup Files
@@ -151,9 +149,8 @@ wizard or the `config.yml` file.
 Executable Application
 ----------------------
 
-The executable application may be downloaded from:
-- Mac OS X:  https://github.com/selbs/speedy_iqa/releases/
-- Windows: [TO DO](https://www.example_link.com)
+A downloadable executable should be available soon. In the meantime, the program can be run from the command line
+or an executable can be created from the source code using the instructions below.
 
 ### Creating an Executable
 

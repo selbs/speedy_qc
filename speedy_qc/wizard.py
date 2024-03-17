@@ -27,11 +27,15 @@ from speedy_qc.utils import open_yml_file, setup_logging, ConnectionManager
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
     resource_dir = sys._MEIPASS
+elif 'main.py' in os.listdir(os.path.dirname(os.path.realpath(__file__))):
+    resource_dir = os.path.dirname(os.path.realpath(__file__))
 elif 'main.py' in os.listdir(os.path.dirname(os.path.abspath("__main__"))):
     # This is a regular Python script
     resource_dir = os.path.dirname(os.path.abspath("__main__"))
-else:
+elif 'main.py' in os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc'):
     resource_dir = os.path.join(os.path.dirname(os.path.abspath("__main__")), 'speedy_qc')
+else:
+    raise(FileNotFoundError(f"Resource directory not found from {os.path.dirname(os.path.abspath('__main__'))}"))
 
 
 class RadioButtonPage(QWizardPage):
@@ -268,13 +272,13 @@ class ConfigurationWizard(QWizard):
 
         self.setStyleSheet(f"""
             QLineEdit {{
-                color: {get_theme('dark_blue.xml')['primaryLightColor']};
+                color: {get_theme(self.settings.value('theme', 'dark_blue.xml'))['primaryLightColor']};
             }}
             QSpinBox {{
-                color: {get_theme('dark_blue.xml')['primaryLightColor']};
+                color: {get_theme(self.settings.value('theme', 'dark_blue.xml'))['primaryLightColor']};
             }}
             QComboBox {{
-                color: {get_theme('dark_blue.xml')['primaryLightColor']};
+                color: {get_theme(self.settings.value('theme', 'dark_blue.xml'))['primaryLightColor']};
             }}
         """)
 
@@ -297,6 +301,7 @@ class ConfigurationWizard(QWizard):
         self.config_data = open_yml_file(self.config_path)
         self.checkboxes = self.config_data.get('checkboxes', [])
         self.radio_buttons = self.config_data.get('radiobuttons', [])
+
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_interval = self.config_data.get('backup_interval', 5)
         self.backup_dir = self.config_data.get('backup_dir', os.path.expanduser('~/speedy_qc/backups'))
@@ -328,8 +333,7 @@ class ConfigurationWizard(QWizard):
         self.resize(700, 800)
 
         # Set the default button to be the next / finish button
-        next_button = self.button(QWizard.WizardButton.NextButton)
-        next_button.setDefault(True)
+        self.button(QWizard.WizardButton.NextButton).setDefault(True)
 
     def create_options_page(self):
         """
@@ -500,7 +504,6 @@ class ConfigurationWizard(QWizard):
         # Create a vertical layout for the page
         layout = QVBoxLayout(page)
 
-
         self.backup_widget = QWidget(page)
         self.backup_layout = QVBoxLayout(self.backup_widget)
 
@@ -555,11 +558,12 @@ class ConfigurationWizard(QWizard):
         layout = QVBoxLayout(page)
 
         # Create QComboBox for the list of available .yml files
-        self.config_files_combobox = QComboBox(self)
+        self.config_files_combobox = QComboBox()
         for file in os.listdir(resource_dir):
             if file.endswith('.yml'):
                 self.config_files_combobox.addItem(file)
-        last_used_file = self.settings.value("config_file", "config.yml")
+
+        last_used_file = self.settings.value("last_config_file", "config.yml")
         index = self.config_files_combobox.findText(last_used_file)
         if index >= 0:  # Only change the index if the file was found
             self.config_files_combobox.setCurrentIndex(index)
@@ -657,7 +661,7 @@ class ConfigurationWizard(QWizard):
         logger.info(f"Configuration saved to {save_path}")
 
         # Inform the user that the configuration has been saved
-        QMessageBox.information(self, "Configuration Saved", "The configuration has been saved.")
+        # QMessageBox.information(self, "Configuration Saved", "The configuration has been saved.")
 
         super().accept()
 
@@ -673,7 +677,7 @@ if __name__ == '__main__':
 
     # Load the last config file used
     settings = QSettings('SpeedyQC', 'DicomViewer')
-    config_file = settings.value('config_file', os.path.join(default_dir, 'config.yml'))
+    config_file = settings.value('last_config_file', os.path.join(default_dir, 'config.yml'))
 
     # Create the configuration wizard
     wizard = ConfigurationWizard(config_file)
