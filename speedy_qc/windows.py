@@ -440,12 +440,12 @@ class SetupWindow(QDialog):
         """
         Overwrite the default accept method to prevent the dialog from closing if the json file is not compatible.
         """
-        if not self.check_json_compatibility(self.json_label.text()):
-            # Prevent the dialog from closing
-            self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
-            return
-        else:
-            super().accept()
+        # if not self.check_json_compatibility(self.json_label.text()):
+        #     # Prevent the dialog from closing
+        #     self.button_box.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        #     return
+        # else:
+        super().accept()
 
     def accept(self):
         """
