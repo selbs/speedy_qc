@@ -198,7 +198,7 @@ class MainApp(QMainWindow):
 
         # Now set up the main window layout and toolbars
         self.main_layout = QVBoxLayout()
-        self.current_index = 0
+        # self.current_index = 0
         self.setWindowTitle(f"Speedy QC - File: {self.file_list[self.current_index]}")
 
         # Create the image scene and set as the central widget
@@ -452,7 +452,7 @@ class MainApp(QMainWindow):
         self.statusBar().addPermanentWidget(self.progress_text)
         self.statusBar().addPermanentWidget(self.progress_bar)
         percent_viewed = 100 * len([value for value in self.viewed_values.values() if value]) / len(self.file_list)
-        self.update_progress_text()
+        self.update_progress_text(percent_viewed)
         self.update_progress_bar(percent_viewed)
         self.change_theme(self.settings.value("theme", "dark_blue.xml"))
 
@@ -487,13 +487,13 @@ class MainApp(QMainWindow):
         """
         self.progress_bar.setValue(int(progress))
 
-    def update_progress_text(self):
+    def update_progress_text(self, percent_viewed):
         """
         Update the progress bar with the current progress
         """
         viewed_no = len([value for value in self.viewed_values.values() if value])
         total_no = len(self.file_list)
-        self.progress_text.setText(f"Progress: {viewed_no}/{total_no}")
+        self.progress_text.setText(f"Image No.: {self.current_index + 1}/{total_no} | Viewed: {viewed_no} ({int(percent_viewed)}%)")
 
     def prep_first_image(self):
         """
@@ -1045,7 +1045,7 @@ class MainApp(QMainWindow):
         self.page1.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.stack.addWidget(self.page1)
 
-        self.next_unviewed_button = QPushButton('Next Unviewed', clicked=self.next_unrated_image)
+        self.next_unviewed_button = QPushButton('Next Unviewed')
         self.next_unviewed_button.setStyleSheet("font-size: 14px;")
         self.page1_layout.addWidget(self.next_unviewed_button)
 
@@ -1228,8 +1228,8 @@ class MainApp(QMainWindow):
             self.highlighted_radiogroup = list(self.radiobuttons_boxes.keys())[0]
             self.highlight_radiogroup()
 
-        self.update_progress_text()
         percent_viewed = 100*len([value for value in self.viewed_values.values() if value])/len(self.file_list)
+        self.update_progress_text(percent_viewed)
         self.update_progress_bar(percent_viewed)
 
         self.textbox.setPlainText(self.notes[self.file_list[self.current_index]])
