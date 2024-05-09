@@ -107,7 +107,7 @@ class MainApp(QMainWindow):
         else:
             self.config = self.open_config_yml()
             self.findings = self.config.get('checkboxes', [])
-            self.radiobutton_groups = self.config.get('radiobuttons', {})
+            self.radiobutton_groups = self.config.get('radiobuttons', [])
             # self.task = "medical diagnosis"
             self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
             self.max_backups = self.config.get('max_backups', 10)
@@ -1430,26 +1430,29 @@ class MainApp(QMainWindow):
         )
 
         self.findings = self.config.get('checkboxes', [])
-        self.bboxes = {f: {} for f in self.file_list}
-        self.radiobutton_groups = self.config.get('radiobuttons', {})
+        self.radiobutton_groups = self.config.get('radiobuttons', [])
         self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
         self.max_backups = self.config.get('max_backups', 10)
         self.backup_dir = os.path.normpath(os.path.expanduser(self.config.get('backup_dir', '~/speedy_qc/backups')))
         self.backup_interval = self.config.get('backup_interval', 5)
         self.assign_colors_to_findings()
 
+        self.checkbox_values = {}
+        self.bboxes = {}
+        self.radiobutton_values = {}
+
         for entry in data['files']:
             filename = entry['filename']
             self.viewed_values[filename] = entry['viewed']
             self.rotation[filename] = entry['rotation']
             self.notes[filename] = entry['notes']
+            self.checkbox_values[filename] = {}
+            self.bboxes[filename] = {}
+            self.radiobutton_values[filename] = {}
 
             if 'checkboxes' in entry:
                 for cbox, value in entry['checkboxes'].items():
-                    if filename in self.checkbox_values:
-                        self.checkbox_values[filename][cbox] = value
-                    else:
-                        self.checkbox_values[filename] = {cbox: value}
+                    self.checkbox_values[filename][cbox] = value
 
             if 'bboxes' in entry:
                 for finding, coord_sets in entry['bboxes'].items():
@@ -1458,10 +1461,7 @@ class MainApp(QMainWindow):
 
             if 'radiobuttons' in entry:
                 for name, value in entry['radiobuttons'].items():
-                    if filename in self.radiobutton_values:
-                        self.radiobutton_values[filename][name] = value
-                    else:
-                        self.radiobutton_values[filename] = {name: value}
+                    self.radiobutton_values[filename][name] = value
         return True
 
     def export_to_csv(self):
