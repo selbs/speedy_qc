@@ -85,6 +85,8 @@ class MainApp(QMainWindow):
         # Initialize variables
         self.current_index = 0
         self.checkboxes = {}
+        self.replica_checkboxes = {}
+        self.replica2_checkboxes = {}
         self.radiobuttons = {}
         self.radiobuttons_boxes = {}
         self.bboxes = {}
@@ -110,6 +112,8 @@ class MainApp(QMainWindow):
             self.radiobutton_groups = self.config.get('radiobuttons', [])
             # self.task = "medical diagnosis"
             self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
+            self.conflict_resolution = self.config.get('conflict_resolution', False)
+            self.conflict_resolution_json_files = self.config.get('conflict_resolution_json_files', {})
             self.max_backups = self.config.get('max_backups', 10)
             self.backup_dir = os.path.normpath(os.path.expanduser(self.config.get('backup_dir', '~/speedy_qc/backups')))
             self.backup_interval = self.config.get('backup_interval', 5)
@@ -140,6 +144,9 @@ class MainApp(QMainWindow):
                                            self.file_list}
             else:
                 self.radiobutton_values = {f: {} for f in self.file_list}
+
+        # load conflict resolution data if on conflict resolution mode
+        self.load_conflict_resolution_data()
 
         self.backup_interval = self.settings.value("backup_interval", 5, type=int)
         self.image = None
@@ -790,6 +797,12 @@ class MainApp(QMainWindow):
         """
         filename = self.file_list[self.current_index]
         for cbox in self.findings:
+            # if self.conflict_resolution:
+            #     if (self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0)\
+            #         == self.conflict_resolution_data.get("2", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0)
+            #     ):
+            #         # if the two annotators agree skip checkbox
+            #         continue
             self.checkboxes[cbox] = QCheckBox(cbox, self)
             self.checkboxes[cbox].setObjectName(cbox)
             self.checkboxes[cbox].setTristate(self.tristate_checkboxes)
@@ -811,6 +824,66 @@ class MainApp(QMainWindow):
                                                 f"}} ")
             self.checkboxes[cbox].setCheckState(convert_to_checkstate(self.checkbox_values.get(filename, 0).get(cbox, 0)))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
+            if self.conflict_resolution:
+                # add a second box that replicates the first one but cannot be interacted with
+                self.replica_checkboxes[cbox] = QCheckBox("Annot. 1", self)
+                self.replica_checkboxes[cbox].setObjectName(cbox + "_replica")
+                self.replica_checkboxes[cbox].setTristate(self.tristate_checkboxes)
+                self.replica_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
+                                                                    f"background-color: {self.colors[cbox].name()}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid #999;"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}}"
+                                                                    f"QCheckBox::indicator:indeterminate {{ "
+                                                                    f"background-color: {semitrans_color.name(QColor.NameFormat.HexArgb)}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid {self.colors[cbox].name()};"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}} ")
+                self.replica_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data\
+                                                                                  .get("1", 0)\
+                                                                                  .get("checkbox_values", 0)\
+                                                                                  .get(filename, 0)\
+                                                                                  .get(cbox, 0)))
+                self.replica_checkboxes[cbox].setDisabled(True)
+
+                # add a second box that replicates the first one but cannot be interacted with
+                self.replica2_checkboxes[cbox] = QCheckBox("Annot. 2", self)
+                self.replica2_checkboxes[cbox].setObjectName(cbox + "_replica2")
+                self.replica2_checkboxes[cbox].setTristate(self.tristate_checkboxes)
+                self.replica2_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
+                                                                    f"background-color: {self.colors[cbox].name()}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid #999;"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}}"
+                                                                    f"QCheckBox::indicator:indeterminate {{ "
+                                                                    f"background-color: {semitrans_color.name(QColor.NameFormat.HexArgb)}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid {self.colors[cbox].name()};"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}} ")
+                self.replica2_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data\
+                                                                                  .get("2", 0)\
+                                                                                  .get("checkbox_values", 0)\
+                                                                                  .get(filename, 0)\
+                                                                                  .get(cbox, 0)))
+                self.replica2_checkboxes[cbox].setDisabled(True)
+
+
+                print(f"Checkbox {cbox} created")
+                # print content of checkboxes
+                print(self.checkboxes[cbox].text())
+        if self.conflict_resolution:
+            # output a widget where the checkboxes are to say no conflicts
+            self.no_conflicts_label = QLabel("No conflicts")
+            self.no_conflicts_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.no_conflicts_label.setStyleSheet("font-size: 18px;")
 
     def create_radiobuttons(self, name, options_list):
         """
@@ -991,10 +1064,31 @@ class MainApp(QMainWindow):
                                                f"{int(default_gb_color.alpha() * self.highlighted_opacity)})")
             ckbox_group_box.setStyleSheet("QGroupBox { font-size: 14px; }")
 
-            checkbox_layout = QVBoxLayout()
+            if not self.conflict_resolution:
+                checkbox_layout = QVBoxLayout()
+            else:
+                checkbox_layout = QGridLayout()
+                row = 0
+
 
             for finding, checkbox in self.checkboxes.items():
-                checkbox_layout.addWidget(checkbox)
+                if not self.conflict_resolution:
+                    checkbox_layout.addWidget(checkbox)
+                else:
+                    # if the two annotators agree skip checkbox
+                    # if (self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(self.file_list[self.current_index], 0).get(finding, 0)\
+                    #     == self.conflict_resolution_data.get("2", 0).get("checkbox_values", 0).get(self.file_list[self.current_index], 0).get(finding, 0)
+                    # ):
+                    #     print("skipping checkbox: ", finding)
+                    #     continue
+                    checkbox_layout.addWidget(checkbox, row, 2)
+                    checkbox_layout.addWidget(self.replica_checkboxes[finding], row, 0)
+                    checkbox_layout.addWidget(self.replica2_checkboxes[finding], row, 1)
+                    row += 1
+
+            if self.conflict_resolution:
+                checkbox_layout.addWidget(self.no_conflicts_label, row, 1)
+                row += 1
 
             if self.tristate_checkboxes:
                 try:
@@ -1016,7 +1110,11 @@ class MainApp(QMainWindow):
                         color: """ + info_color.name(QColor.NameFormat.HexArgb) + """;
                     }
                 """)
-                checkbox_layout.addWidget(tristate_info)
+
+                if not self.conflict_resolution:
+                    checkbox_layout.addWidget(tristate_info)
+                else:
+                    checkbox_layout.addWidget(tristate_info, row, 2)
 
             ckbox_group_box.setLayout(checkbox_layout)
             ckbox_group_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
@@ -1268,10 +1366,56 @@ class MainApp(QMainWindow):
         """
         # Get the checkbox widget for the current file
         filename = self.file_list[self.current_index]
+        if self.conflict_resolution:
+            no_conflicts = True
         for cbox in self.findings:
             # Set the checkbox value based on the stored value
+            if self.conflict_resolution:
+                # print("conflict resolution full data: ",  self.conflict_resolution_data)
+                print("0 annotator data: ", self.conflict_resolution_data["1"]["checkbox_values"][self.file_list[self.current_index]])
+                if (self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(
+                        self.file_list[self.current_index], 0).get(cbox, 0) \
+                        == self.conflict_resolution_data.get("2", 0).get("checkbox_values", 0).get(
+                            self.file_list[self.current_index], 0).get(cbox, 0)
+                ):
+                    print("index: ", self.current_index)
+                    print("filename: ", filename)
+                    print("skipping checkbox: ", cbox)
+                    # hide checkbox
+                    self.checkboxes[cbox].hide()
+                    self.replica_checkboxes[cbox].hide()
+                    self.replica2_checkboxes[cbox].hide()
+                    # continue
+                else:
+                    no_conflicts = False
+                    self.checkboxes[cbox].show()
+                    self.replica_checkboxes[cbox].show()
+                    self.replica2_checkboxes[cbox].show()
+
             checkbox_value = self.checkbox_values.get(filename, False)[cbox]
             self.checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+
+            if self.conflict_resolution:
+                # self.replica_checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+                # self.replica2_checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+                # print(self.conflict_resolution_data["2"])
+                print(self.conflict_resolution_data["2"]["checkbox_values"][filename])
+                self.replica_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data \
+                                                                                  .get("1", 0) \
+                                                                                  .get("checkbox_values", 0) \
+                                                                                  .get(filename, 0) \
+                                                                                  .get(cbox, 0)))
+                self.replica2_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data \
+                                                                                  .get("2", 0) \
+                                                                                  .get("checkbox_values", 0) \
+                                                                                  .get(filename, 0) \
+                                                                                  .get(cbox, 0)))
+        if self.conflict_resolution:
+            if no_conflicts:
+                self.no_conflicts_label.show()
+            else:
+                self.no_conflicts_label.hide()
+
 
     def keyPressEvent(self, event: QKeyEvent):
         """
@@ -1432,6 +1576,8 @@ class MainApp(QMainWindow):
         self.findings = self.config.get('checkboxes', [])
         self.radiobutton_groups = self.config.get('radiobuttons', [])
         self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
+        self.conflict_resolution = self.config.get('conflict_resolution', False)
+        self.conflict_resolution_json_files = self.config.get('conflict_resolution_json_files', {})
         self.max_backups = self.config.get('max_backups', 10)
         self.backup_dir = os.path.normpath(os.path.expanduser(self.config.get('backup_dir', '~/speedy_qc/backups')))
         self.backup_interval = self.config.get('backup_interval', 5)
@@ -1462,7 +1608,39 @@ class MainApp(QMainWindow):
             if 'radiobuttons' in entry:
                 for name, value in entry['radiobuttons'].items():
                     self.radiobutton_values[filename][name] = value
+
         return True
+
+    def load_conflict_resolution_data(self):
+        if self.conflict_resolution:
+            self.conflict_resolution_data = {
+                "1": self.load_multiple_annotator_data("1"),
+                "2": self.load_multiple_annotator_data("2")
+            }
+
+    def load_multiple_annotator_data(self, annotator_id="1"):
+        assert annotator_id in self.conflict_resolution_json_files
+        # read the json files
+        with open(self.conflict_resolution_json_files[annotator_id], 'r') as file:
+            data = json.load(file)
+        annotator_dict = {
+            'checkbox_values': {},
+            'bboxes': {},
+        }
+        for entry in data['files']:
+            filename = entry['filename']
+            if 'checkboxes' in entry:
+                for cbox, value in entry['checkboxes'].items():
+                    if filename not in annotator_dict["checkbox_values"]:
+                        annotator_dict["checkbox_values"][filename] = {}
+                    annotator_dict["checkbox_values"][filename][cbox] = value
+            if 'bboxes' in entry:
+                for finding, coord_sets in entry['bboxes'].items():
+                    for coord_set in coord_sets:
+                        pass
+                        # TODO add the bounding box to the annotator_dict
+        print(annotator_dict)
+        return annotator_dict
 
     def export_to_csv(self):
         """
