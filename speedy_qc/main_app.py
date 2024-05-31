@@ -1087,7 +1087,7 @@ class MainApp(QMainWindow):
                     row += 1
 
             if self.conflict_resolution:
-                checkbox_layout.addWidget(self.no_conflicts_label, row, 1)
+                checkbox_layout.addWidget(self.no_conflicts_label, row, 2)
                 row += 1
 
             if self.tristate_checkboxes:
