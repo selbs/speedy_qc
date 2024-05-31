@@ -536,6 +536,151 @@ class UnifiedCheckboxPage(QWizardPage):
         self.tristate_checkboxes = bool(state)
 
 
+class ResolveConflictsPage(QWizardPage):
+    def __init__(self, wiz, parent=None):
+        """
+        Initializes the page.
+
+        :param parent: The parent widget.
+        :type parent: QWidget
+        """
+        super().__init__(parent)
+        self.connection_manager = wiz.connection_manager
+
+        self.wiz = wiz
+        self.settings = wiz.settings
+
+        self.setTitle("Resolve Conflicts")
+        self.setSubTitle("\nDo you want to resolve conflicts between two annotations?")
+
+        self.layout = QVBoxLayout(self)
+
+        self.conflict_resolution = wiz.conflict_resolution
+        self.conflict_resolution_checkbox = QCheckBox("Resolve conflicts between two annotations")
+        self.conflict_resolution_checkbox.setChecked(wiz.conflict_resolution)
+        self.layout.addWidget(self.conflict_resolution_checkbox)
+
+        # Add input fields for JSON file directories
+        self.json1_label = QLabel("First JSON file:")
+        self.json1_edit = QLineEdit(self)
+        self.json1_button = QPushButton("Browse")
+        # set value to the current value
+        self.json1_edit.setText(wiz.conflict_resolution_json_files.get("1", ""))
+        self.json1_button.clicked.connect(self.browse_json1)
+
+        self.json2_label = QLabel("Second JSON file:")
+        self.json2_edit = QLineEdit(self)
+        self.json2_button = QPushButton("Browse")
+        # set value to the current value
+        self.json2_edit.setText(wiz.conflict_resolution_json_files.get("2", ""))
+        self.json2_button.clicked.connect(self.browse_json2)
+
+        # Add the JSON file input fields and buttons to the layout
+        self.json1_layout = QHBoxLayout()
+        self.json1_layout.addWidget(self.json1_edit)
+        self.json1_layout.addWidget(self.json1_button)
+
+        self.json2_layout = QHBoxLayout()
+        self.json2_layout.addWidget(self.json2_edit)
+        self.json2_layout.addWidget(self.json2_button)
+
+        self.layout.addWidget(self.json1_label)
+        self.layout.addLayout(self.json1_layout)
+        self.layout.addWidget(self.json2_label)
+        self.layout.addLayout(self.json2_layout)
+
+        if bool(self.conflict_resolution):
+            self.json1_label.show()
+            self.json1_edit.show()
+            self.json1_button.show()
+            self.json2_label.show()
+            self.json2_edit.show()
+            self.json2_button.show()
+        else:
+            self.json1_label.hide()
+            self.json1_edit.hide()
+            self.json1_button.hide()
+            self.json2_label.hide()
+            self.json2_edit.hide()
+            self.json2_button.hide()
+
+        self.connection_manager.connect(self.conflict_resolution_checkbox.stateChanged, self.update_conflict_resolution_state)
+        self.connection_manager.connect(self.conflict_resolution_checkbox.stateChanged, self.toggle_json_inputs)
+
+
+    def toggle_json_inputs(self, state):
+        if bool(state):
+            print("CHECKED !!!!!!!!!!!!!!!!!!!!")
+            self.json1_label.show()
+            self.json1_edit.show()
+            self.json1_button.show()
+            self.json2_label.show()
+            self.json2_edit.show()
+            self.json2_button.show()
+        else:
+            print("UNCHECKED !!!!!!!!!!!!!!!!!!!!")
+            self.json1_label.hide()
+            self.json1_edit.hide()
+            self.json1_button.hide()
+            self.json2_label.hide()
+            self.json2_edit.hide()
+            self.json2_button.hide()
+
+    def browse_json1(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select First JSON File", "", "JSON Files (*.json)")
+        if file_path:
+            self.json1_edit.setText(file_path)
+
+    def browse_json2(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Second JSON File", "", "JSON Files (*.json)")
+        if file_path:
+            self.json2_edit.setText(file_path)
+
+    def initializePage(self):
+        self.wizard().setButtonLayout([
+            QWizard.WizardButton.CustomButton1,
+            QWizard.WizardButton.CustomButton2,
+            QWizard.WizardButton.Stretch,
+            QWizard.WizardButton.BackButton,
+            QWizard.WizardButton.NextButton,
+            QWizard.WizardButton.CancelButton
+        ])
+
+        self.wizard().button(QWizard.WizardButton.BackButton).hide()
+
+        advanced_button = QPushButton("Advanced")
+        self.connection_manager.connect(advanced_button.clicked, self.open_advanced_settings)
+        self.wizard().setButton(QWizard.WizardButton.CustomButton1, advanced_button)
+
+        load_config_button = QPushButton("Load Config.")
+        self.connection_manager.connect(load_config_button.clicked, self.wiz.config_load_dialog)
+        self.wizard().setButton(QWizard.WizardButton.CustomButton2, load_config_button)
+
+    def update_conflict_resolution_state(self, state):
+        """
+        Updates the state of the conflict_resolution option in the config file.
+
+        :param state: The state of the conflict_resolution option.
+        :type state: int
+        """
+        print("state", state)
+        self.conflict_resolution = bool(state)
+
+    def open_advanced_settings(self):
+        advanced_settings_dialog = AdvancedSettingsDialog(self)
+        advanced_settings_dialog.exec()
+
+    def get_json_file_paths(self):
+        """
+        Returns the paths of the JSON files if the checkbox is checked.
+
+        :return: Tuple of paths to the JSON files.
+        :rtype: tuple
+        """
+        if self.conflict_resolution:
+            return {"1": self.json1_edit.text(), "2": self.json2_edit.text()}
+        return {"", ""}
+
 class UnifiedRadiobuttonPage(QWizardPage):
     def __init__(self, wiz, parent=None):
         """
@@ -809,6 +954,9 @@ class ConfigurationWizard(QWizard):
         # Load the config file
         self.config_data = open_yml_file(os.path.normpath(os.path.join(resource_dir, self.config_filename)))
 
+        # print path of the config file
+        print(os.path.normpath(os.path.join(resource_dir, self.config_filename)))
+
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_interval = self.config_data.get('backup_interval', 5)
         self.backup_dir = os.path.normpath(
@@ -825,6 +973,11 @@ class ConfigurationWizard(QWizard):
         self.cboxes = self.config_data.get('checkboxes', [])
         self.cbox_page = UnifiedCheckboxPage(self)
         self.addPage(self.cbox_page)
+
+        self.conflict_resolution = bool(self.config_data.get('conflict_resolution', False))
+        self.conflict_resolution_json_files = self.config_data.get('conflict_resolution_json_files', {})
+        self.conflict_resolution_page = ResolveConflictsPage(self)
+        self.addPage(self.conflict_resolution_page)
 
         self.radiobuttons = self.config_data.get('radiobuttons', [])
         self.radio_page = UnifiedRadiobuttonPage(self)
@@ -855,6 +1008,8 @@ class ConfigurationWizard(QWizard):
             self.config_data['max_backups'] = self.max_backups
             self.config_data['backup_interval'] = self.backup_interval
             self.config_data['tristate_checkboxes'] = self.cbox_page.tristate_checkboxes
+            self.config_data['conflict_resolution'] = self.conflict_resolution_page.conflict_resolution
+            self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths()
 
             cboxes = []
             for i in range(self.cbox_page.cbox_box_layouts.count()):
@@ -868,6 +1023,10 @@ class ConfigurationWizard(QWizard):
 
             self.config_data['radiobuttons'] = self.radio_page.get_group_data()
 
+            # print(self.config_data)
+            # self.config_data["conflict_resolution"] = self.conflict_resolution_page.conflict_resolution
+            # self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths()
+
             if not self.config_filename.endswith('.yml'):
                 self.config_filename += '.yml'
 
@@ -879,9 +1038,13 @@ class ConfigurationWizard(QWizard):
             self.settings.setValue("max_backups", self.max_backups)
             self.settings.setValue("backup_interval", self.backup_interval)
             self.settings.setValue('tristate_checkboxes', self.tristate_checkboxes)
+            self.settings.setValue('conflict_resolution', self.conflict_resolution)
+            self.settings.setValue('conflict_resolution_json_files', self.conflict_resolution_page.get_json_file_paths())
 
             # Save the config file
             with open(os.path.normpath(os.path.join(os.path.abspath(resource_dir), self.config_filename)), 'w') as f:
+                # print content of the config file
+                print(self.config_data)
                 yaml.dump(self.config_data, f)
 
             # Makes a log of the new configuration
