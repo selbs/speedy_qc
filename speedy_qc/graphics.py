@@ -29,7 +29,7 @@ class BoundingBoxItem(QGraphicsRectItem):
     """
     removed = pyqtSignal(object)
 
-    def __init__(self, rect, color, mediator=None, parent=None):
+    def __init__(self, rect, color, mediator=None, parent=None, dashed=False):
         """
         Initializes a new BoundingBoxItem with the given rectangle, color, and optional parent item.
 
@@ -42,7 +42,10 @@ class BoundingBoxItem(QGraphicsRectItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges, True)
         self.setAcceptHoverEvents(True)
-        self.setPen(QPen(color, 5))
+        pen = QPen(color, 5)
+        if dashed:
+            pen.setStyle(Qt.PenStyle.DotLine)
+        self.setPen(pen)
         self.mediator = mediator
 
     def contextMenuEvent(self, event: QGraphicsSceneContextMenuEvent):
