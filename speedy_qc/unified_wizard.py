@@ -679,7 +679,7 @@ class ResolveConflictsPage(QWizardPage):
         """
         if self.conflict_resolution:
             return {"1": self.json1_edit.text(), "2": self.json2_edit.text()}
-        return {"", ""}
+        return {"1": "", "2": ""}
 
 class UnifiedRadiobuttonPage(QWizardPage):
     def __init__(self, wiz, parent=None):
