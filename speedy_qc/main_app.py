@@ -1625,7 +1625,6 @@ class MainApp(QMainWindow):
         """
         data = self.create_output_dictionary()
         with open(selected_file, 'w') as file:
-            print(data)
             json.dump(data, file, indent=2)
 
     def load_from_json(self) -> bool:
