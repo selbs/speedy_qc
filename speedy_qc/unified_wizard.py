@@ -4,6 +4,7 @@ unified_wizard.py
 This is an updated version of the ConfigurationWizard class from speedy_iqa/config_wizard.py. It allows users to
 customize the configuration of the Speedy IQA application without the need to restart the application.
 """
+import logging
 
 from PyQt6.QtCore import *
 from PyQt6.QtGui import *
@@ -15,6 +16,7 @@ import sys
 from math import ceil
 
 from speedy_qc.utils import open_yml_file, setup_logging, ConnectionManager, find_relative_image_path
+import json
 
 if hasattr(sys, '_MEIPASS'):
     # This is a py2app executable
@@ -339,6 +341,14 @@ class SelectImagesPage(QWizardPage):
 
         self.layout.addLayout(im_selection_layout)
 
+        self.conflict_resolution_checkbox = QCheckBox("Resolve conflicts between two annotators?")
+        self.conflict_resolution_checkbox.setChecked(wiz.conflict_resolution)
+        self.layout.addWidget(self.conflict_resolution_checkbox)
+
+        self.connection_manager.connect(
+            self.conflict_resolution_checkbox.stateChanged, self.wiz.update_conflict_resolution
+        )
+
     def initializePage(self):
 
         self.wizard().setButtonLayout([
@@ -551,29 +561,26 @@ class ResolveConflictsPage(QWizardPage):
         self.settings = wiz.settings
 
         self.setTitle("Resolve Conflicts")
-        self.setSubTitle("\nDo you want to resolve conflicts between two annotations?")
+        self.setSubTitle("\nSelect the JSON save files for the two annotators...")
 
         self.layout = QVBoxLayout(self)
 
         self.conflict_resolution = wiz.conflict_resolution
-        self.conflict_resolution_checkbox = QCheckBox("Resolve conflicts between two annotations")
-        self.conflict_resolution_checkbox.setChecked(wiz.conflict_resolution)
-        self.layout.addWidget(self.conflict_resolution_checkbox)
 
         # Add input fields for JSON file directories
-        self.json1_label = QLabel("First JSON file:")
+        self.json1_label = QLabel("JSON file for Annotator 1:")
         self.json1_edit = QLineEdit(self)
         self.json1_button = QPushButton("Browse")
         # set value to the current value
         self.json1_edit.setText(wiz.conflict_resolution_json_files.get("1", ""))
-        self.json1_button.clicked.connect(self.browse_json1)
+        self.connection_manager.connect(self.json1_button.clicked, self.browse_json1)
 
-        self.json2_label = QLabel("Second JSON file:")
+        self.json2_label = QLabel("JSON file for Annotator 2:")
         self.json2_edit = QLineEdit(self)
         self.json2_button = QPushButton("Browse")
         # set value to the current value
         self.json2_edit.setText(wiz.conflict_resolution_json_files.get("2", ""))
-        self.json2_button.clicked.connect(self.browse_json2)
+        self.connection_manager.connect(self.json2_button.clicked, self.browse_json2)
 
         # Add the JSON file input fields and buttons to the layout
         self.json1_layout = QHBoxLayout()
@@ -589,52 +596,68 @@ class ResolveConflictsPage(QWizardPage):
         self.layout.addWidget(self.json2_label)
         self.layout.addLayout(self.json2_layout)
 
-        if bool(self.conflict_resolution):
-            self.json1_label.show()
-            self.json1_edit.show()
-            self.json1_button.show()
-            self.json2_label.show()
-            self.json2_edit.show()
-            self.json2_button.show()
-        else:
-            self.json1_label.hide()
-            self.json1_edit.hide()
-            self.json1_button.hide()
-            self.json2_label.hide()
-            self.json2_edit.hide()
-            self.json2_button.hide()
-
-        self.connection_manager.connect(self.conflict_resolution_checkbox.stateChanged, self.update_conflict_resolution_state)
-        self.connection_manager.connect(self.conflict_resolution_checkbox.stateChanged, self.toggle_json_inputs)
-
-
-    def toggle_json_inputs(self, state):
-        if bool(state):
-            print("CHECKED !!!!!!!!!!!!!!!!!!!!")
-            self.json1_label.show()
-            self.json1_edit.show()
-            self.json1_button.show()
-            self.json2_label.show()
-            self.json2_edit.show()
-            self.json2_button.show()
-        else:
-            print("UNCHECKED !!!!!!!!!!!!!!!!!!!!")
-            self.json1_label.hide()
-            self.json1_edit.hide()
-            self.json1_button.hide()
-            self.json2_label.hide()
-            self.json2_edit.hide()
-            self.json2_button.hide()
+        self.json1_label.show()
+        self.json1_edit.show()
+        self.json1_button.show()
+        self.json2_label.show()
+        self.json2_edit.show()
+        self.json2_button.show()
 
     def browse_json1(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select First JSON File", "", "JSON Files (*.json)")
         if file_path:
             self.json1_edit.setText(file_path)
+            self.check_json_compatibility()
 
     def browse_json2(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Second JSON File", "", "JSON Files (*.json)")
         if file_path:
             self.json2_edit.setText(file_path)
+            self.check_json_compatibility()
+
+    def check_json_compatibility(self):
+        def _read_jsons(json_paths):
+            json_data = []
+            for i, json_path in enumerate(json_paths):
+                with open(json_path, "r") as f:
+                    json_data.append(json.load(f))
+            return json_data
+
+        def _compare_json_config(json_data):
+            config_dicts = []
+            keys_to_check = ['checkboxes', 'radiobuttons', 'tristate_checkboxes']
+            for j in json_data:
+                if 'config' not in j:
+                    return False
+                config_dicts.append({k: j['config'][k] for k in keys_to_check if k in j['config']})
+            reference = config_dicts[0]
+            for other in config_dicts[1:]:
+                if other != reference:
+                    return False
+            return True
+
+        def _show_incompatible_json_warning():
+            # Display warning message
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
+            msg_box.setText(f"Error!\n\nThe JSONs for the annotators have incompatible configurations.\n\n"
+                            f"Please check that the same checkboxes and radiobuttons were used.")
+            ok_button = msg_box.addButton('Ok', QMessageBox.ButtonRole.AcceptRole)
+            msg_box.exec()
+
+        if self.json1_edit and self.json2_edit:
+            jsons = _read_jsons([self.json1_edit.text(), self.json2_edit.text()])
+            compatible = _compare_json_config(jsons)
+            print("COMPATIBLE", compatible)
+            print(self.json1_edit.text(), self.json2_edit.text())
+            if compatible:
+                self.wizard().button(QWizard.WizardButton.FinishButton).setEnabled(True)
+            else:
+                self.wizard().button(QWizard.WizardButton.FinishButton).setEnabled(False)
+                _show_incompatible_json_warning()
+        else:
+            self.wizard().button(QWizard.WizardButton.FinishButton).setEnabled(False)
+
 
     def initializePage(self):
         self.wizard().setButtonLayout([
@@ -643,10 +666,11 @@ class ResolveConflictsPage(QWizardPage):
             QWizard.WizardButton.Stretch,
             QWizard.WizardButton.BackButton,
             QWizard.WizardButton.NextButton,
+            QWizard.WizardButton.FinishButton,
             QWizard.WizardButton.CancelButton
         ])
 
-        self.wizard().button(QWizard.WizardButton.BackButton).hide()
+        self.wizard().button(QWizard.WizardButton.NextButton).hide()
 
         advanced_button = QPushButton("Advanced")
         self.connection_manager.connect(advanced_button.clicked, self.open_advanced_settings)
@@ -655,16 +679,6 @@ class ResolveConflictsPage(QWizardPage):
         load_config_button = QPushButton("Load Config.")
         self.connection_manager.connect(load_config_button.clicked, self.wiz.config_load_dialog)
         self.wizard().setButton(QWizard.WizardButton.CustomButton2, load_config_button)
-
-    def update_conflict_resolution_state(self, state):
-        """
-        Updates the state of the conflict_resolution option in the config file.
-
-        :param state: The state of the conflict_resolution option.
-        :type state: int
-        """
-        print("state", state)
-        self.conflict_resolution = bool(state)
 
     def open_advanced_settings(self):
         advanced_settings_dialog = AdvancedSettingsDialog(self)
@@ -923,6 +937,7 @@ class ConfigurationWizard(QWizard):
         self.settings = QSettings('SpeedyQC', 'DicomViewer')
         self.connection_manager = ConnectionManager()
         self.skip = False
+        self.pages = []
 
         self.setStyleSheet(f"""
             QLineEdit {{
@@ -966,24 +981,22 @@ class ConfigurationWizard(QWizard):
             self.config_data.get('log_dir', os.path.normpath(os.path.expanduser('~/speedy_qc/logs')))
         )
 
+        self.conflict_resolution = bool(self.config_data.get('conflict_resolution', False))
         self.image_dir_selection_page = SelectImagesPage(self)
         self.addPage(self.image_dir_selection_page)
 
         self.tristate_checkboxes = bool(self.config_data.get('tristate_checkboxes', False))
         self.cboxes = self.config_data.get('checkboxes', [])
         self.cbox_page = UnifiedCheckboxPage(self)
-        self.addPage(self.cbox_page)
 
-        self.conflict_resolution = bool(self.config_data.get('conflict_resolution', False))
         self.conflict_resolution_json_files = self.config_data.get('conflict_resolution_json_files', {})
         self.conflict_resolution_page = ResolveConflictsPage(self)
-        self.addPage(self.conflict_resolution_page)
 
         self.radiobuttons = self.config_data.get('radiobuttons', [])
         self.radio_page = UnifiedRadiobuttonPage(self)
         self.radio_page.load_group_data(self.radiobuttons)
-        self.radio_page.setCommitPage(True)
-        self.addPage(self.radio_page)
+
+        self.setup_pages()
 
         # Set the window title and modality
         self.setWindowTitle("Speedy QC Settings")
@@ -994,6 +1007,69 @@ class ConfigurationWizard(QWizard):
         self.setMinimumSize(600, 540)
 
         self.connection_manager.connect(self.finished, self.save_config)
+
+        self.connection_manager.connect(self.currentIdChanged, self.on_current_id_changed)
+
+    def setup_pages(self):
+        print("Current conflict resolution setting:", self.conflict_resolution)
+
+        # Clear all dynamic pages
+        current_page_ids = self.pageIds()
+        dynamic_pages = [self.cbox_page, self.radio_page, self.conflict_resolution_page]
+
+        # Remove pages by checking their references
+        for page in dynamic_pages:
+            # Obtain the page ID by checking if it's in the wizard's current page list
+            page.setCommitPage(False)
+            for page_id in current_page_ids:
+                if self.page(page_id) is page:
+                    self.removePage(page_id)
+
+        # Manually manage pages list to ensure accuracy
+        self.pages.clear()
+
+        # Always add the image selection page since it's a static first page
+        if self.image_dir_selection_page not in self.pages:
+            self.pages.append(self.image_dir_selection_page)
+
+        # Based on the conflict resolution, conditionally add other pages
+        if not self.conflict_resolution:
+            self.addPage(self.cbox_page)
+            self.pages.append(self.cbox_page)
+            self.addPage(self.radio_page)
+            self.pages.append(self.radio_page)
+            self.image_dir_selection_page.setCommitPage(False)
+            self.radio_page.setCommitPage(True)
+        else:
+            self.addPage(self.conflict_resolution_page)
+            self.pages.append(self.conflict_resolution_page)
+            self.image_dir_selection_page.setCommitPage(False)
+            self.conflict_resolution_page.setCommitPage(True)
+
+        # Debug: List current pages to verify correct setup
+        print("Pages after setup:", [type(page).__name__ for page in self.pages])
+
+    def on_current_id_changed(self, id: int):
+        if self.page(id) is self.conflict_resolution_page:
+            self.conflict_resolution_page.check_json_compatibility()
+
+    def update_conflict_resolution(self, state: int):
+        self.conflict_resolution = bool(state)
+        print("Conflict resolution:", self.conflict_resolution)
+        self.setup_pages()
+
+    def get_annotator_config(self, logger):
+        fpath = self.config_data["conflict_resolution_json_files"]['1']
+        with open(fpath, 'r') as f:
+            data = json.load(f)
+        try:
+            config = data['config']
+            return config['tristate_checkboxes'], config['checkboxes'], config['radiobuttons']
+        except KeyError as e:
+            logger.error("Couldn't find checkbox and radiobutton config in json for annotator 1.")
+            raise e
+        except Exception as e:
+            raise e
 
     def save_config(self):
         """
@@ -1007,25 +1083,26 @@ class ConfigurationWizard(QWizard):
             self.config_data['backup_dir'] = os.path.normpath(os.path.abspath(self.backup_dir))
             self.config_data['max_backups'] = self.max_backups
             self.config_data['backup_interval'] = self.backup_interval
-            self.config_data['tristate_checkboxes'] = self.cbox_page.tristate_checkboxes
-            self.config_data['conflict_resolution'] = self.conflict_resolution_page.conflict_resolution
+            self.config_data['conflict_resolution'] = self.conflict_resolution
             self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths()
 
-            cboxes = []
-            for i in range(self.cbox_page.cbox_box_layouts.count()):
-                hbox = self.cbox_page.cbox_box_layouts.itemAt(i).layout()  # Get the QHBoxLayout
-                if hbox is not None:
-                    if hbox.count() > 0:
-                        line_edit = hbox.itemAt(0).widget()  # Get the QLineEdit from the QHBoxLayout
-                        if line_edit.text():
-                            cboxes.append(line_edit.text())
-            self.config_data['checkboxes'] = cboxes
-
-            self.config_data['radiobuttons'] = self.radio_page.get_group_data()
-
-            # print(self.config_data)
-            # self.config_data["conflict_resolution"] = self.conflict_resolution_page.conflict_resolution
-            # self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths()
+            if not self.conflict_resolution:
+                self.config_data['tristate_checkboxes'] = self.cbox_page.tristate_checkboxes
+                cboxes = []
+                for i in range(self.cbox_page.cbox_box_layouts.count()):
+                    hbox = self.cbox_page.cbox_box_layouts.itemAt(i).layout()  # Get the QHBoxLayout
+                    if hbox is not None:
+                        if hbox.count() > 0:
+                            line_edit = hbox.itemAt(0).widget()  # Get the QLineEdit from the QHBoxLayout
+                            if line_edit.text():
+                                cboxes.append(line_edit.text())
+                self.config_data['checkboxes'] = cboxes
+                self.config_data['radiobuttons'] = self.radio_page.get_group_data()
+            else:
+                tristate_checkboxes, checkboxes, radiobuttons = self.get_annotator_config(logger)
+                self.config_data['tristate_checkboxes'] = tristate_checkboxes
+                self.config_data['checkboxes'] = checkboxes
+                self.config_data['radiobuttons'] = radiobuttons
 
             if not self.config_filename.endswith('.yml'):
                 self.config_filename += '.yml'
