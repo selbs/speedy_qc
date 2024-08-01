@@ -648,8 +648,6 @@ class ResolveConflictsPage(QWizardPage):
         if self.json1_edit and self.json2_edit:
             jsons = _read_jsons([self.json1_edit.text(), self.json2_edit.text()])
             compatible = _compare_json_config(jsons)
-            print("COMPATIBLE", compatible)
-            print(self.json1_edit.text(), self.json2_edit.text())
             if compatible:
                 self.wizard().button(QWizard.WizardButton.FinishButton).setEnabled(True)
             else:
@@ -969,9 +967,6 @@ class ConfigurationWizard(QWizard):
         # Load the config file
         self.config_data = open_yml_file(os.path.normpath(os.path.join(resource_dir, self.config_filename)))
 
-        # print path of the config file
-        print(os.path.normpath(os.path.join(resource_dir, self.config_filename)))
-
         self.max_backups = self.config_data.get('max_backups', 10)
         self.backup_interval = self.config_data.get('backup_interval', 5)
         self.backup_dir = os.path.normpath(
@@ -1011,8 +1006,6 @@ class ConfigurationWizard(QWizard):
         self.connection_manager.connect(self.currentIdChanged, self.on_current_id_changed)
 
     def setup_pages(self):
-        print("Current conflict resolution setting:", self.conflict_resolution)
-
         # Clear all dynamic pages
         current_page_ids = self.pageIds()
         dynamic_pages = [self.cbox_page, self.radio_page, self.conflict_resolution_page]
@@ -1046,16 +1039,12 @@ class ConfigurationWizard(QWizard):
             self.image_dir_selection_page.setCommitPage(False)
             self.conflict_resolution_page.setCommitPage(True)
 
-        # Debug: List current pages to verify correct setup
-        print("Pages after setup:", [type(page).__name__ for page in self.pages])
-
     def on_current_id_changed(self, id: int):
         if self.page(id) is self.conflict_resolution_page:
             self.conflict_resolution_page.check_json_compatibility()
 
     def update_conflict_resolution(self, state: int):
         self.conflict_resolution = bool(state)
-        print("Conflict resolution:", self.conflict_resolution)
         self.setup_pages()
 
     def get_annotator_config(self, logger):
@@ -1120,8 +1109,6 @@ class ConfigurationWizard(QWizard):
 
             # Save the config file
             with open(os.path.normpath(os.path.join(os.path.abspath(resource_dir), self.config_filename)), 'w') as f:
-                # print content of the config file
-                print(self.config_data)
                 yaml.dump(self.config_data, f)
 
             # Makes a log of the new configuration
