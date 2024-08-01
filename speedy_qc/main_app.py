@@ -258,9 +258,10 @@ class MainApp(QMainWindow):
             QKeySequence.StandardKey.Save
         ])
         self.file_tool_bar.addAction(self.saveAction)
-        self.exportAction = QAction(self.icons['export'], "Export to CSV File", self)
-        self.file_tool_bar.addAction(self.exportAction)
-        self.exportAction.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_E))
+        if not self.conflict_resolution:
+            self.exportAction = QAction(self.icons['export'], "Export to CSV File", self)
+            self.file_tool_bar.addAction(self.exportAction)
+            self.exportAction.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_E))
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.file_tool_bar)
 
         # Create the labelling toolbar
@@ -555,8 +556,9 @@ class MainApp(QMainWindow):
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
         self.connection_manager.connect(self.logoAction.triggered, self.show_about)
-        self.connection_manager.connect(self.exportAction.triggered, self.export_to_csv)
         self.connection_manager.connect(self.next_unviewed_button.clicked, self.nextUnratedAction.trigger)
+        if not self.conflict_resolution:
+            self.connection_manager.connect(self.exportAction.triggered, self.export_to_csv)
 
     def go_to_image(self):
         """
@@ -854,7 +856,7 @@ class MainApp(QMainWindow):
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
             if self.conflict_resolution:
                 # add a second box that initial_annottes the first one but cannot be interacted with
-                self.initial_annot_checkboxes[cbox] = QCheckBox("1st Annotator", self)
+                self.initial_annot_checkboxes[cbox] = QCheckBox("An. 1", self)
                 self.initial_annot_checkboxes[cbox].setObjectName(cbox + "_initial_annot")
                 self.initial_annot_checkboxes[cbox].setTristate(self.tristate_checkboxes)
                 self.initial_annot_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
@@ -879,7 +881,7 @@ class MainApp(QMainWindow):
                 self.initial_annot_checkboxes[cbox].setDisabled(True)
 
                 # add a second box that initial_annottes the first one but cannot be interacted with
-                self.initial_annot2_checkboxes[cbox] = QCheckBox("2nd Annotator", self)
+                self.initial_annot2_checkboxes[cbox] = QCheckBox("An. 2", self)
                 self.initial_annot2_checkboxes[cbox].setObjectName(cbox + "_initial_annot2")
                 self.initial_annot2_checkboxes[cbox].setTristate(self.tristate_checkboxes)
                 self.initial_annot2_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
@@ -896,11 +898,17 @@ class MainApp(QMainWindow):
                                                                     f"width: 18px;"
                                                                     f"height: 18px;"
                                                                     f"}} ")
-                self.initial_annot2_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data\
-                                                                                  .get("2", 0)\
-                                                                                  .get("checkbox_values", 0)\
-                                                                                  .get(filename, 0)\
-                                                                                  .get(cbox, 0)))
+                self.initial_annot2_checkboxes[cbox].setCheckState(
+                    convert_to_checkstate(
+                        self.conflict_resolution_data.get(
+                            "2", 0
+                        ).get(
+                            "checkbox_values", 0
+                        ).get(
+                            filename, 0
+                        ).get(
+                            cbox, 0
+                        )))
                 self.initial_annot2_checkboxes[cbox].setDisabled(True)
                 # if consensus is reached, disable the checkboxes
                 if self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0) == \
@@ -1099,7 +1107,7 @@ class MainApp(QMainWindow):
                 if not self.conflict_resolution:
                     checkbox_layout.addWidget(checkbox)
                 else:
-                    checkbox_layout.addWidget(checkbox, row, 2)
+                    checkbox_layout.addWidget(checkbox, row, 2, 1, 2, Qt.AlignmentFlag.AlignLeft)
                     checkbox_layout.addWidget(self.initial_annot_checkboxes[finding], row, 0)
                     checkbox_layout.addWidget(self.initial_annot2_checkboxes[finding], row, 1)
                     row += 1
@@ -1128,20 +1136,21 @@ class MainApp(QMainWindow):
                 if not self.conflict_resolution:
                     checkbox_layout.addWidget(tristate_info)
                 else:
-                    checkbox_layout.addWidget(tristate_info, row, 0, 1, 3)
+                    checkbox_layout.addWidget(tristate_info, row, 0, 1, 4)
                     # add message on row 0 saying that the Dashed Line boxes are from Annotator Number 2
-                    dashed_line_label = QLabel("Dashed-line bounding boxes are from Annotator Number 2.")
+                    dashed_line_label = QLabel("Dashed-line bounding boxes are from Annotator 2.")
+                    dashed_line_label.setWordWrap(True)
                     dashed_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
                     dashed_line_label.setStyleSheet("""
-                    QLabel {
-                        font-size: 12px;
-                        font-weight: normal;
-                        margin: 0px;
-                        padding: 0px;
-                        color: """ + info_color.name(QColor.NameFormat.HexArgb) + """;
-                    }
-                """)
-                    checkbox_layout.addWidget(dashed_line_label, row+1, 0, 1, 3)
+                        QLabel {
+                            font-size: 12px;
+                            font-weight: normal;
+                            margin: 0px;
+                            padding: 0px;
+                            color: """ + info_color.name(QColor.NameFormat.HexArgb) + """;
+                        }
+                    """)
+                    checkbox_layout.addWidget(dashed_line_label, row+1, 0, 1, 4)
 
             ckbox_group_box.setLayout(checkbox_layout)
             ckbox_group_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
@@ -1193,11 +1202,11 @@ class MainApp(QMainWindow):
         else:
             self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
             self.textbox_label.setObjectName("Notes1")
-            self.textbox_label.setText("1st ANNOTATOR NOTES:")
+            self.textbox_label.setText("ANNOTATOR 1 NOTES:")
 
             self.textbox_label2.setAlignment(Qt.AlignmentFlag.AlignLeft)
             self.textbox_label2.setObjectName("Notes2")
-            self.textbox_label2.setText("2nd ANNOTATOR NOTES:")
+            self.textbox_label2.setText("ANNOTATOR 2 NOTES:")
 
             self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
             self.textbox.setMinimumHeight(50)
@@ -1511,8 +1520,6 @@ class MainApp(QMainWindow):
             Qt.Key.Key_8: 7,
             Qt.Key.Key_9: 8,
         }
-
-        # print(self.radiobuttons[self.highlighted_radiogroup])
 
         if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
             for k, v in button_dict.items():
@@ -1969,9 +1976,10 @@ class MainApp(QMainWindow):
         file_menu.addAction(menu_save_as_action)
         help_menu.addAction(menu_save_as_action)
         file_menu.addSeparator()
-        file_menu.addAction(self.exportAction)
-        help_menu.addAction(self.exportAction)
-        file_menu.addSeparator()
+        if not self.conflict_resolution:
+            file_menu.addAction(self.exportAction)
+            help_menu.addAction(self.exportAction)
+            file_menu.addSeparator()
         file_menu.addAction(self.exitAction)
         help_menu.addAction(self.exitAction)
 
@@ -2098,7 +2106,8 @@ class MainApp(QMainWindow):
         self.rotate_right_action.setIcon(self.icons['rot_right'])
         self.zoom_in_action.setIcon(self.icons['zoom_in'])
         self.zoom_out_action.setIcon(self.icons['zoom_out'])
-        self.exportAction.setIcon(self.icons['export'])
+        if not self.conflict_resolution:
+            self.exportAction.setIcon(self.icons['export'])
         self.invert_action.setIcon(self.icons['inv'])
 
 
