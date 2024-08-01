@@ -258,9 +258,10 @@ class MainApp(QMainWindow):
             QKeySequence.StandardKey.Save
         ])
         self.file_tool_bar.addAction(self.saveAction)
-        self.exportAction = QAction(self.icons['export'], "Export to CSV File", self)
-        self.file_tool_bar.addAction(self.exportAction)
-        self.exportAction.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_E))
+        if not self.conflict_resolution:
+            self.exportAction = QAction(self.icons['export'], "Export to CSV File", self)
+            self.file_tool_bar.addAction(self.exportAction)
+            self.exportAction.setShortcut(QKeySequence(Qt.KeyboardModifier.ControlModifier | Qt.Key.Key_E))
         self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self.file_tool_bar)
 
         # Create the labelling toolbar
@@ -555,8 +556,9 @@ class MainApp(QMainWindow):
         self.connection_manager.connect(self.saveAction.triggered, self.save_to_json)
         self.connection_manager.connect(self.exitAction.triggered, self.quit_app)
         self.connection_manager.connect(self.logoAction.triggered, self.show_about)
-        self.connection_manager.connect(self.exportAction.triggered, self.export_to_csv)
         self.connection_manager.connect(self.next_unviewed_button.clicked, self.nextUnratedAction.trigger)
+        if not self.conflict_resolution:
+            self.connection_manager.connect(self.exportAction.triggered, self.export_to_csv)
 
     def go_to_image(self):
         """
@@ -1976,9 +1978,10 @@ class MainApp(QMainWindow):
         file_menu.addAction(menu_save_as_action)
         help_menu.addAction(menu_save_as_action)
         file_menu.addSeparator()
-        file_menu.addAction(self.exportAction)
-        help_menu.addAction(self.exportAction)
-        file_menu.addSeparator()
+        if not self.conflict_resolution:
+            file_menu.addAction(self.exportAction)
+            help_menu.addAction(self.exportAction)
+            file_menu.addSeparator()
         file_menu.addAction(self.exitAction)
         help_menu.addAction(self.exitAction)
 
@@ -2105,7 +2108,8 @@ class MainApp(QMainWindow):
         self.rotate_right_action.setIcon(self.icons['rot_right'])
         self.zoom_in_action.setIcon(self.icons['zoom_in'])
         self.zoom_out_action.setIcon(self.icons['zoom_out'])
-        self.exportAction.setIcon(self.icons['export'])
+        if not self.conflict_resolution:
+            self.exportAction.setIcon(self.icons['export'])
         self.invert_action.setIcon(self.icons['inv'])
 
 
