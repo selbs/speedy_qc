@@ -85,9 +85,13 @@ class MainApp(QMainWindow):
         # Initialize variables
         self.current_index = 0
         self.checkboxes = {}
+        self.initial_annot_checkboxes = {}
+        self.initial_annot2_checkboxes = {}
         self.radiobuttons = {}
         self.radiobuttons_boxes = {}
         self.bboxes = {}
+        self.bboxes_anotator_1 = {}
+        self.bboxes_anotator_2 = {}
         self.colors = {}
         self.viewed_values = {}
         self.rotation = {}
@@ -95,6 +99,8 @@ class MainApp(QMainWindow):
         self.checkbox_values = {}
         self.radiobutton_values = {}
         self.file_list = []
+        self.has_conflict = {}
+        self.conflict_files = []
         self.default_groupbox_color = None
         self.highlighted_groupbox_color = None
         self.highlighted_opacity = 0.15
@@ -110,6 +116,8 @@ class MainApp(QMainWindow):
             self.radiobutton_groups = self.config.get('radiobuttons', [])
             # self.task = "medical diagnosis"
             self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
+            self.conflict_resolution = self.config.get('conflict_resolution', False)
+            self.conflict_resolution_json_files = self.config.get('conflict_resolution_json_files', {})
             self.max_backups = self.config.get('max_backups', 10)
             self.backup_dir = os.path.normpath(os.path.expanduser(self.config.get('backup_dir', '~/speedy_qc/backups')))
             self.backup_interval = self.config.get('backup_interval', 5)
@@ -140,6 +148,13 @@ class MainApp(QMainWindow):
                                            self.file_list}
             else:
                 self.radiobutton_values = {f: {} for f in self.file_list}
+
+        # Assign colors to findings
+        if not self.loaded:
+            self.assign_colors_to_findings()
+
+        # load conflict resolution data if on conflict resolution mode
+        self.load_conflict_resolution_data()
 
         self.backup_interval = self.settings.value("backup_interval", 5, type=int)
         self.image = None
@@ -187,10 +202,6 @@ class MainApp(QMainWindow):
 
         # Set the central widget to the image viewer
         self.image_view = CustomGraphicsView(self, main_window=True)
-
-        # Assign colors to findings
-        if not self.loaded:
-            self.assign_colors_to_findings()
 
         # Load the checkbox values from json file
         if self.loaded:
@@ -272,6 +283,11 @@ class MainApp(QMainWindow):
 
         self.textbox_label = QLabel(self)
         self.textbox = QTextEdit(self)
+        if self.conflict_resolution:
+            self.textbox_label2 = QLabel(self)
+            self.textbox2 = QTextEdit(self)
+            self.textbox.setReadOnly(True)
+            self.textbox2.setReadOnly(True)
         self.stack = QStackedWidget()
         self.page1 = QWidget()
         self.page1_layout = QVBoxLayout()
@@ -451,7 +467,10 @@ class MainApp(QMainWindow):
         self.progress_text.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.statusBar().addPermanentWidget(self.progress_text)
         self.statusBar().addPermanentWidget(self.progress_bar)
-        percent_viewed = 100 * len([value for value in self.viewed_values.values() if value]) / len(self.file_list)
+        if not self.conflict_resolution:
+            percent_viewed = 100 * len([value for value in self.viewed_values.values() if value]) / len(self.file_list)
+        else:
+            percent_viewed = 100 * len([value for key, value in self.viewed_values.items() if value and self.has_conflict[key]]) / len(self.conflict_files)
         self.update_progress_text(percent_viewed)
         self.update_progress_bar(percent_viewed)
         self.change_theme(self.settings.value("theme", "dark_blue.xml"))
@@ -491,9 +510,15 @@ class MainApp(QMainWindow):
         """
         Update the progress bar with the current progress
         """
-        viewed_no = len([value for value in self.viewed_values.values() if value])
-        total_no = len(self.file_list)
-        self.progress_text.setText(f"Image No.: {self.current_index + 1}/{total_no} | Viewed: {viewed_no} ({int(percent_viewed)}%)")
+        if not self.conflict_resolution:
+            viewed_no = len([value for value in self.viewed_values.values() if value])
+            total_no = len(self.file_list)
+            self.progress_text.setText(f"Image No.: {self.current_index + 1}/{total_no} | Viewed: {viewed_no} ({int(percent_viewed)}%)")
+        else:
+            viewed_no = len([value for key, value in self.viewed_values.items() if value and self.has_conflict[key]])
+            total_conflict_files_no = len(self.conflict_files)
+            current_conflict_file_idx = self.file_idx_to_conflict_idx[self.current_index]
+            self.progress_text.setText(f"Image No.: {current_conflict_file_idx + 1}/{total_conflict_files_no} | Viewed: {viewed_no} ({int(percent_viewed)}%)")
 
     def prep_first_image(self):
         """
@@ -502,6 +527,9 @@ class MainApp(QMainWindow):
         # self.rotate_bounding_boxes(
         #     self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
         # )
+        if self.conflict_resolution:
+            self.image_view.add_bboxes(self.bboxes_anotator_1.get(self.file_list[self.current_index], {}))
+            self.image_view.add_bboxes(self.bboxes_anotator_2.get(self.file_list[self.current_index], {}))
         self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
 
     def init_connections(self):
@@ -534,11 +562,17 @@ class MainApp(QMainWindow):
         """
         Open a dialog to go to a specific image
         """
-        dialog = FileSelectionDialog(self.file_list, self)
+        if not self.conflict_resolution:
+            dialog = FileSelectionDialog(self.file_list, self)
+        else:
+            dialog = FileSelectionDialog(self.conflict_files, self)
         result = dialog.exec()
         if result == QDialog.DialogCode.Accepted:
             self.reset_window_sliders()
-            index = self.file_list.index(dialog.selected_file)
+            if not self.conflict_resolution:
+                index = self.file_list.index(dialog.selected_file)
+            else:
+                index = self.conflict_files.index(dialog.selected_file)
             self.change_image("go_to", index)
 
     def backup_file(self) -> List[str]:
@@ -692,6 +726,13 @@ class MainApp(QMainWindow):
             for finding, bboxes in self.bboxes[filename].items():
                 for bbox in bboxes:
                     bbox.rotate(rotation_angle, center)
+            if self.conflict_resolution:
+                for finding, bboxes in self.bboxes_anotator_1[filename].items():
+                    for bbox in bboxes:
+                        bbox.rotate(rotation_angle, center)
+                for finding, bboxes in self.bboxes_anotator_2[filename].items():
+                    for bbox in bboxes:
+                        bbox.rotate(rotation_angle, center)
 
     def resizeEvent(self, event: QResizeEvent):
         """
@@ -811,6 +852,62 @@ class MainApp(QMainWindow):
                                                 f"}} ")
             self.checkboxes[cbox].setCheckState(convert_to_checkstate(self.checkbox_values.get(filename, 0).get(cbox, 0)))
             self.connection_manager.connect(self.checkboxes[cbox].stateChanged, self.on_checkbox_changed)
+            if self.conflict_resolution:
+                # add a second box that initial_annottes the first one but cannot be interacted with
+                self.initial_annot_checkboxes[cbox] = QCheckBox("1st Annotator", self)
+                self.initial_annot_checkboxes[cbox].setObjectName(cbox + "_initial_annot")
+                self.initial_annot_checkboxes[cbox].setTristate(self.tristate_checkboxes)
+                self.initial_annot_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
+                                                                    f"background-color: {self.colors[cbox].name()}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid #999;"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}}"
+                                                                    f"QCheckBox::indicator:indeterminate {{ "
+                                                                    f"background-color: {semitrans_color.name(QColor.NameFormat.HexArgb)}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid {self.colors[cbox].name()};"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}} ")
+                self.initial_annot_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data\
+                                                                                  .get("1", 0)\
+                                                                                  .get("checkbox_values", 0)\
+                                                                                  .get(filename, 0)\
+                                                                                  .get(cbox, 0)))
+                self.initial_annot_checkboxes[cbox].setDisabled(True)
+
+                # add a second box that initial_annottes the first one but cannot be interacted with
+                self.initial_annot2_checkboxes[cbox] = QCheckBox("2nd Annotator", self)
+                self.initial_annot2_checkboxes[cbox].setObjectName(cbox + "_initial_annot2")
+                self.initial_annot2_checkboxes[cbox].setTristate(self.tristate_checkboxes)
+                self.initial_annot2_checkboxes[cbox].setStyleSheet(f"QCheckBox::indicator:checked {{ "
+                                                                    f"background-color: {self.colors[cbox].name()}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid #999;"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}}"
+                                                                    f"QCheckBox::indicator:indeterminate {{ "
+                                                                    f"background-color: {semitrans_color.name(QColor.NameFormat.HexArgb)}; "
+                                                                    f"image: url(nocheck);"
+                                                                    f"border: 1px solid {self.colors[cbox].name()};"
+                                                                    f"width: 18px;"
+                                                                    f"height: 18px;"
+                                                                    f"}} ")
+                self.initial_annot2_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data\
+                                                                                  .get("2", 0)\
+                                                                                  .get("checkbox_values", 0)\
+                                                                                  .get(filename, 0)\
+                                                                                  .get(cbox, 0)))
+                self.initial_annot2_checkboxes[cbox].setDisabled(True)
+                # if consensus is reached, disable the checkboxes
+                if self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0) == \
+                        self.conflict_resolution_data.get("2", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0):
+                    self.checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(filename, 0).get(cbox, 0)))
+                    self.checkboxes[cbox].setDisabled(True)
+
 
     def create_radiobuttons(self, name, options_list):
         """
@@ -991,10 +1088,21 @@ class MainApp(QMainWindow):
                                                f"{int(default_gb_color.alpha() * self.highlighted_opacity)})")
             ckbox_group_box.setStyleSheet("QGroupBox { font-size: 14px; }")
 
-            checkbox_layout = QVBoxLayout()
+            if not self.conflict_resolution:
+                checkbox_layout = QVBoxLayout()
+            else:
+                checkbox_layout = QGridLayout()
+                row = 0
+
 
             for finding, checkbox in self.checkboxes.items():
-                checkbox_layout.addWidget(checkbox)
+                if not self.conflict_resolution:
+                    checkbox_layout.addWidget(checkbox)
+                else:
+                    checkbox_layout.addWidget(checkbox, row, 2)
+                    checkbox_layout.addWidget(self.initial_annot_checkboxes[finding], row, 0)
+                    checkbox_layout.addWidget(self.initial_annot2_checkboxes[finding], row, 1)
+                    row += 1
 
             if self.tristate_checkboxes:
                 try:
@@ -1016,7 +1124,24 @@ class MainApp(QMainWindow):
                         color: """ + info_color.name(QColor.NameFormat.HexArgb) + """;
                     }
                 """)
-                checkbox_layout.addWidget(tristate_info)
+
+                if not self.conflict_resolution:
+                    checkbox_layout.addWidget(tristate_info)
+                else:
+                    checkbox_layout.addWidget(tristate_info, row, 0, 1, 3)
+                    # add message on row 0 saying that the Dashed Line boxes are from Annotator Number 2
+                    dashed_line_label = QLabel("Dashed-line bounding boxes are from Annotator Number 2.")
+                    dashed_line_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+                    dashed_line_label.setStyleSheet("""
+                    QLabel {
+                        font-size: 12px;
+                        font-weight: normal;
+                        margin: 0px;
+                        padding: 0px;
+                        color: """ + info_color.name(QColor.NameFormat.HexArgb) + """;
+                    }
+                """)
+                    checkbox_layout.addWidget(dashed_line_label, row+1, 0, 1, 3)
 
             ckbox_group_box.setLayout(checkbox_layout)
             ckbox_group_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
@@ -1052,18 +1177,43 @@ class MainApp(QMainWindow):
         main_content_layout.addWidget(self.stack)
 
         # Add the Notes textbox
-        self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        self.textbox_label.setObjectName("Notes")
-        self.textbox_label.setText("NOTES:")
+        if not self.conflict_resolution:
+            self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            self.textbox_label.setObjectName("Notes")
+            self.textbox_label.setText("NOTES:")
 
-        self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
-        self.textbox.setMinimumHeight(50)
-        self.textbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+            self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+            self.textbox.setMinimumHeight(50)
+            self.textbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
 
-        textbox_widget = QWidget()
-        textbox_layout = QVBoxLayout(textbox_widget)
-        textbox_layout.addWidget(self.textbox_label)
-        textbox_layout.addWidget(self.textbox)
+            textbox_widget = QWidget()
+            textbox_layout = QVBoxLayout(textbox_widget)
+            textbox_layout.addWidget(self.textbox_label)
+            textbox_layout.addWidget(self.textbox)
+        else:
+            self.textbox_label.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            self.textbox_label.setObjectName("Notes1")
+            self.textbox_label.setText("1st ANNOTATOR NOTES:")
+
+            self.textbox_label2.setAlignment(Qt.AlignmentFlag.AlignLeft)
+            self.textbox_label2.setObjectName("Notes2")
+            self.textbox_label2.setText("2nd ANNOTATOR NOTES:")
+
+            self.textbox.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+            self.textbox.setMinimumHeight(50)
+            self.textbox.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+
+            self.textbox2.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+            self.textbox2.setMinimumHeight(50)
+            self.textbox2.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+
+            textbox_widget = QWidget()
+
+            textbox_layout = QGridLayout(textbox_widget)
+            textbox_layout.addWidget(self.textbox_label, 0, 0)
+            textbox_layout.addWidget(self.textbox, 1, 0)
+            textbox_layout.addWidget(self.textbox_label2, 0, 1)
+            textbox_layout.addWidget(self.textbox2, 1, 1)
         splitter.addWidget(textbox_widget)
 
         splitter.addWidget(main_content_widget)
@@ -1162,6 +1312,9 @@ class MainApp(QMainWindow):
         self.image_view.rotate(-self.rotation[self.file_list[self.current_index]])
 
         self.bboxes[self.file_list[self.current_index]] = self.image_view.rect_items.copy()
+        # if self.conflict_resolution:
+        #     self.bboxes_anotator_1[self.file_list[self.current_index]] = self.image_view.rect_items_annotator_1.copy()
+        #     self.bboxes_anotator_2[self.file_list[self.current_index]] = self.image_view.rect_items_annotator_2.copy()
         # self.rotate_bounding_boxes(
         #     self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]],
         #     reverse=True
@@ -1171,29 +1324,55 @@ class MainApp(QMainWindow):
         # Save current file and index
         self.save_settings()
 
-        total_unviewed = [f for f in self.file_list if not self.viewed_values[f]]
+        if not self.conflict_resolution:
+            total_unviewed = [f for f in self.file_list if not self.viewed_values[f]]
+        else:
+            total_unviewed = [f for f in self.conflict_files if not self.viewed_values[f] and self.has_conflict[f]]
         if len(total_unviewed) == 0:
             QMessageBox.information(self, "All Images Viewed", "You have viewed all the images.")
 
-        if direction == "previous":
-            self.current_index -= 1
-            if self.current_index < 0:
-                self.current_index = len(self.file_list) - 1
-        elif direction == "go_to":
-            self.current_index = go_to_index
-        elif direction == "next":
-            if self.current_index == len(self.file_list) - 1:
-                self.current_index = 0
+        if not self.conflict_resolution:
+            if direction == "previous":
+                self.current_index -= 1
+                if self.current_index < 0:
+                    self.current_index = len(self.file_list) - 1
+            elif direction == "go_to":
+                self.current_index = go_to_index
+            elif direction == "next":
+                if self.current_index == len(self.file_list) - 1:
+                    self.current_index = 0
+                else:
+                    self.current_index += 1
             else:
-                self.current_index += 1
-        else:
-            unviewed = [f for f in self.file_list[self.current_index + 1:] if not self.viewed_values[f]]
-            next_unviewed = unviewed[0] if len(unviewed) > 0 else None
-            if next_unviewed is None:
-                unviewed = [f for f in self.file_list[0:self.current_index] if not self.viewed_values[f]]
+                unviewed = [f for f in self.file_list[self.current_index + 1:] if not self.viewed_values[f]]
                 next_unviewed = unviewed[0] if len(unviewed) > 0 else None
-            if next_unviewed is not None:
-                self.current_index = self.file_list.index(next_unviewed)
+                if next_unviewed is None:
+                    unviewed = [f for f in self.file_list[0:self.current_index] if not self.viewed_values[f]]
+                    next_unviewed = unviewed[0] if len(unviewed) > 0 else None
+                if next_unviewed is not None:
+                    self.current_index = self.file_list.index(next_unviewed)
+        else:
+            current_conflict_index = self.file_idx_to_conflict_idx[self.current_index]
+            if direction == "previous":
+                current_conflict_index -= 1
+                if current_conflict_index < 0:
+                    current_conflict_index = len(self.conflict_files) - 1
+            elif direction == "go_to":
+                current_conflict_index = go_to_index
+            elif direction == "next":
+                if current_conflict_index == len(self.conflict_files) - 1:
+                    current_conflict_index = 0
+                else:
+                    current_conflict_index += 1
+            else:
+                unviewed = [f for f in self.conflict_files[current_conflict_index + 1:] if not self.viewed_values[f]]
+                next_unviewed = unviewed[0] if len(unviewed) > 0 else None
+                if next_unviewed is None:
+                    unviewed = [f for f in self.conflict_files[0:current_conflict_index] if not self.viewed_values[f]]
+                    next_unviewed = unviewed[0] if len(unviewed) > 0 else None
+                if next_unviewed is not None:
+                    current_conflict_index = self.conflict_files.index(next_unviewed)
+            self.current_index = self.conflict_idx_to_file_idx[current_conflict_index]
 
         self.load_file()
         self.apply_stored_rotation()
@@ -1214,6 +1393,9 @@ class MainApp(QMainWindow):
         #     self.file_list[self.current_index], self.rotation[self.file_list[self.current_index]]
         # )
         self.image_view.add_bboxes(self.bboxes.get(self.file_list[self.current_index], {}))
+        if self.conflict_resolution:
+            self.image_view.add_bboxes(self.bboxes_anotator_1.get(self.file_list[self.current_index], {}))
+            self.image_view.add_bboxes(self.bboxes_anotator_2.get(self.file_list[self.current_index], {}))
 
         self.set_checkbox_value()
         self.set_checked_radiobuttons()
@@ -1228,11 +1410,18 @@ class MainApp(QMainWindow):
             self.highlighted_radiogroup = list(self.radiobuttons_boxes.keys())[0]
             self.highlight_radiogroup()
 
-        percent_viewed = 100*len([value for value in self.viewed_values.values() if value])/len(self.file_list)
+        if not self.conflict_resolution:
+            percent_viewed = 100*len([value for value in self.viewed_values.values() if value])/len(self.file_list)
+        else:
+            percent_viewed = 100*len([value for key, value in self.viewed_values.items() if value and self.has_conflict[key]])/len(self.conflict_files)
         self.update_progress_text(percent_viewed)
         self.update_progress_bar(percent_viewed)
 
-        self.textbox.setPlainText(self.notes[self.file_list[self.current_index]])
+        if not self.conflict_resolution:
+            self.textbox.setPlainText(self.notes[self.file_list[self.current_index]])
+        else:
+            self.textbox.setPlainText(self.notes_annotator_1[self.file_list[self.current_index]])
+            self.textbox2.setPlainText(self.notes_annotator_2[self.file_list[self.current_index]])
 
     def previous_image(self):
         """
@@ -1270,8 +1459,37 @@ class MainApp(QMainWindow):
         filename = self.file_list[self.current_index]
         for cbox in self.findings:
             # Set the checkbox value based on the stored value
-            checkbox_value = self.checkbox_values.get(filename, False)[cbox]
-            self.checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+            if self.conflict_resolution:
+                if (self.conflict_resolution_data.get("1", 0).get("checkbox_values", 0).get(
+                        self.file_list[self.current_index], 0).get(cbox, 0) \
+                        == self.conflict_resolution_data.get("2", 0).get("checkbox_values", 0).get(
+                            self.file_list[self.current_index], 0).get(cbox, 0)
+                ):
+                    # disable checkbox without hiding
+                    self.checkboxes[cbox].setDisabled(True)
+                else:
+                    # enable checkbox
+                    self.checkboxes[cbox].setDisabled(False)
+
+                self.initial_annot_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data \
+                                                                                  .get("1", 0) \
+                                                                                  .get("checkbox_values", 0) \
+                                                                                  .get(filename, 0) \
+                                                                                  .get(cbox, 0)))
+                self.initial_annot2_checkboxes[cbox].setCheckState(convert_to_checkstate(self.conflict_resolution_data \
+                                                                                  .get("2", 0) \
+                                                                                  .get("checkbox_values", 0) \
+                                                                                  .get(filename, 0) \
+                                                                                  .get(cbox, 0)))
+                if (self.initial_annot_checkboxes[cbox].checkState() == self.initial_annot2_checkboxes[cbox].checkState()):
+                    self.checkboxes[cbox].setCheckState(self.initial_annot_checkboxes[cbox].checkState())
+                else:
+                    checkbox_value = self.checkbox_values.get(filename, False)[cbox]
+                    self.checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+            else:
+                checkbox_value = self.checkbox_values.get(filename, False)[cbox]
+                self.checkboxes[cbox].setCheckState(convert_to_checkstate(checkbox_value))
+
 
     def keyPressEvent(self, event: QKeyEvent):
         """
@@ -1294,7 +1512,7 @@ class MainApp(QMainWindow):
             Qt.Key.Key_9: 8,
         }
 
-        print(self.radiobuttons[self.highlighted_radiogroup])
+        # print(self.radiobuttons[self.highlighted_radiogroup])
 
         if Qt.Key.Key_1 <= key <= Qt.Key.Key_9:
             for k, v in button_dict.items():
@@ -1432,6 +1650,8 @@ class MainApp(QMainWindow):
         self.findings = self.config.get('checkboxes', [])
         self.radiobutton_groups = self.config.get('radiobuttons', [])
         self.tristate_checkboxes = self.config.get('tristate_checkboxes', False)
+        self.conflict_resolution = self.config.get('conflict_resolution', False)
+        self.conflict_resolution_json_files = self.config.get('conflict_resolution_json_files', {})
         self.max_backups = self.config.get('max_backups', 10)
         self.backup_dir = os.path.normpath(os.path.expanduser(self.config.get('backup_dir', '~/speedy_qc/backups')))
         self.backup_interval = self.config.get('backup_interval', 5)
@@ -1462,7 +1682,92 @@ class MainApp(QMainWindow):
             if 'radiobuttons' in entry:
                 for name, value in entry['radiobuttons'].items():
                     self.radiobutton_values[filename][name] = value
+
         return True
+
+    def load_conflict_resolution_data(self):
+        if self.conflict_resolution:
+            self.conflict_resolution_data = {
+                "1": self.load_multiple_annotator_data("1"),
+                "2": self.load_multiple_annotator_data("2")
+            }
+            self.bboxes_anotator_1 = {f: {} for f in self.file_list}
+            self.bboxes_anotator_2 = {f: {} for f in self.file_list}
+            self.notes_annotator_1 = {f: "" for f in self.file_list}
+            self.notes_annotator_2 = {f: "" for f in self.file_list}
+            # update the has_conflict dict so it has True values for all images withf at least one conflict (i.e.
+            # at least one checkbox value is different between the two annotators)
+            self.has_conflict = {}
+            self.conflict_files = []
+            self.file_idx_to_conflict_idx = []
+            self.conflict_idx_to_file_idx = []
+            conflict_idx = 0
+            for filename in self.file_list:
+                has_conflict = False
+                # for any checkbox_values that dont have conflicts, set the self.checkbox_values to the value of annotator 1
+                for cbox in self.findings:
+                    if self.conflict_resolution_data["1"]["checkbox_values"][filename][cbox] == \
+                            self.conflict_resolution_data["2"]["checkbox_values"][filename][cbox]:
+                        self.checkbox_values[filename][cbox] = \
+                            self.conflict_resolution_data["1"]["checkbox_values"][filename][cbox]
+                    else:
+                        has_conflict = True
+                if has_conflict:
+                    self.has_conflict[filename] = True
+                    self.conflict_files.append(filename)
+                    self.file_idx_to_conflict_idx.append(conflict_idx)
+                    self.conflict_idx_to_file_idx.append(self.file_list.index(filename))
+                    self.bboxes_anotator_1[filename] = {}
+                    self.bboxes_anotator_2[filename] = {}
+                    for finding, coord_sets in self.conflict_resolution_data["1"]["bboxes"][filename].items():
+                        self.load_conflict_resolution_bounding_box(filename, finding, coord_sets[0], annotator_id="1")
+                    for finding, coord_sets in self.conflict_resolution_data["2"]["bboxes"][filename].items():
+                        self.load_conflict_resolution_bounding_box(filename, finding, coord_sets[0], annotator_id="2")
+                    self.notes_annotator_1 = self.conflict_resolution_data["1"]["notes"]
+                    self.notes_annotator_2 = self.conflict_resolution_data["2"]["notes"]
+                    conflict_idx += 1
+                else:
+                    self.has_conflict[filename] = False
+                    self.file_idx_to_conflict_idx.append(None)
+                    # if not conflict do not show bounding boxes for annotator 1 and 2
+                    self.bboxes_anotator_1[filename] = {}
+                    self.bboxes_anotator_2[filename] = {}
+            if self.current_index == 0 and not self.has_conflict[self.file_list[self.current_index]]:
+                # make current index to the first non viewed image that has a conflict
+                # find the first non viewed image that has a conflict
+                for idx, file in enumerate(self.file_list):
+                    if not self.viewed_values[file] and self.has_conflict[file]:
+                        self.current_index = idx
+                        break
+
+
+    def load_multiple_annotator_data(self, annotator_id="1"):
+        assert annotator_id in self.conflict_resolution_json_files
+        # read the json files
+        with open(self.conflict_resolution_json_files[annotator_id], 'r') as file:
+            data = json.load(file)
+        annotator_dict = {
+            'checkbox_values': {},
+            'bboxes': {},
+            'notes': {}
+        }
+        for entry in data['files']:
+            filename = entry['filename']
+            if 'checkboxes' in entry:
+                for cbox, value in entry['checkboxes'].items():
+                    if filename not in annotator_dict["checkbox_values"]:
+                        annotator_dict["checkbox_values"][filename] = {}
+                    annotator_dict["checkbox_values"][filename][cbox] = value
+            annotator_dict["bboxes"][filename] = {}
+            if 'bboxes' in entry:
+                for finding, coord_sets in entry['bboxes'].items():
+                    for coord_set in coord_sets:
+                        if finding not in annotator_dict["bboxes"][filename]:
+                            annotator_dict["bboxes"][filename][finding] = []
+                        annotator_dict["bboxes"][filename][finding].append(coord_set)
+            if 'notes' in entry:
+                annotator_dict["notes"][filename] = entry['notes']
+        return annotator_dict
 
     def export_to_csv(self):
         """
@@ -1523,6 +1828,36 @@ class MainApp(QMainWindow):
             self.bboxes[file][finding] = [bbox_item]
         self.connection_manager.connect(mediator.removed, self.handle_removed_bbox)
 
+    def load_conflict_resolution_bounding_box(self, file: str, finding: str, raw_rect: Tuple[float, float, float, float],
+                                              annotator_id="1"):
+        """
+        Loads a bounding box object from the x, y, height, width stored in the JSON file and adds it to the appropriate
+        bboxes dictionary entry.
+
+        :param file: File path of the image associated with the bounding box
+        :type file: str
+        :param finding: The finding type associated with the bounding box
+        :type finding: str
+        :param raw_rect: The (x, y, width, height) values of the bounding box
+        :type raw_rect: Tuple[float, float, float, float]
+        """
+        bbx, bby, bbw, bbh = raw_rect
+        color = self.colors[finding]
+        mediator = SignalMediator()
+        dashed = annotator_id == "2"
+        bbox_item = BoundingBoxItem(QRectF(bbx, bby, bbw, bbh), color, mediator, dashed=dashed)
+        if annotator_id == "1":
+            if finding in self.bboxes_anotator_1[file]:
+                self.bboxes_anotator_1[file][finding].append(bbox_item)
+            else:
+                self.bboxes_anotator_1[file][finding] = [bbox_item]
+        else:
+            if finding in self.bboxes_anotator_2[file]:
+                self.bboxes_anotator_2[file][finding].append(bbox_item)
+            else:
+                self.bboxes_anotator_2[file][finding] = [bbox_item]
+        self.connection_manager.connect(mediator.removed, self.handle_removed_bbox)
+
     def handle_removed_bbox(self, bbox):
         """
         Handle the removal of a bounding box item.
@@ -1562,7 +1897,10 @@ class MainApp(QMainWindow):
         Assigns a color to each finding/checkbox using the matplotlib rainbow color map.
         """
         num_colors = len(self.findings)
-        cmap = plt.get_cmap("gist_rainbow")
+        if num_colors <= 20 and self.conflict_resolution:
+            cmap = plt.get_cmap("tab20")
+        else:
+            cmap = plt.get_cmap("gist_rainbow")
         colors = [QColor(*(255 * np.array(cmap(i)[:3])).astype(int)) for i in np.linspace(0, 1, num_colors)]
 
         for idx, finding in enumerate(self.findings):

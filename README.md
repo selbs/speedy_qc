@@ -119,6 +119,24 @@ Your progress through the folder of images is shown in the progress bar at the b
 
 Note: <kbd>⌘</kbd> + Scroll and <kbd>⇧</kbd> + Scroll are only currently available on Mac OS X.
 
+### Conflict Resolution
+
+Speedy QC can also be used to resolve conflicts between 2 annotators.
+
+To do this:
+1. When creating a new annotations project define the task using the same
+definitions as the multiple annotators.
+2. Check the `Resolve Conflicts between Annotators` checkbox.
+3. Select the json file containing the annotations of the first and second annotators.
+
+When resolving conflicts:
+- You will only showed the images that exhibit at least one disagreement between the two annotators.
+- You will not be able to modify the annotations of pathology that both annotators agree on.
+- You will see all bounding boxes and notes of both annotators.
+- You cannot draw new bounding boxes or make notes
+- Radiobuttons are currently ignored completely in conflict resolution.
+- You should save as .json file as exporting to .csv has not been tested.
+
 Customisation
 -------------
 
