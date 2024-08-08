@@ -619,8 +619,9 @@ class ResolveConflictsPage(QWizardPage):
         def _read_jsons(json_paths):
             json_data = []
             for i, json_path in enumerate(json_paths):
-                with open(json_path, "r") as f:
-                    json_data.append(json.load(f))
+                if json_path:
+                    with open(json_path, "r") as f:
+                        json_data.append(json.load(f))
             return json_data
 
         def _compare_json_config(json_data):
@@ -630,7 +631,8 @@ class ResolveConflictsPage(QWizardPage):
                 if 'config' not in j:
                     return False
                 config_dicts.append({k: j['config'][k] for k in keys_to_check if k in j['config']})
-            reference = config_dicts[0]
+            if config_dicts:
+                reference = config_dicts[0]
             for other in config_dicts[1:]:
                 if other != reference:
                     return False
@@ -682,14 +684,14 @@ class ResolveConflictsPage(QWizardPage):
         advanced_settings_dialog = AdvancedSettingsDialog(self)
         advanced_settings_dialog.exec()
 
-    def get_json_file_paths(self):
+    def get_json_file_paths(self, conflict_res):
         """
         Returns the paths of the JSON files if the checkbox is checked.
 
         :return: Tuple of paths to the JSON files.
         :rtype: tuple
         """
-        if self.conflict_resolution:
+        if conflict_res:
             return {"1": self.json1_edit.text(), "2": self.json2_edit.text()}
         return {"1": "", "2": ""}
 
@@ -1073,7 +1075,7 @@ class ConfigurationWizard(QWizard):
             self.config_data['max_backups'] = self.max_backups
             self.config_data['backup_interval'] = self.backup_interval
             self.config_data['conflict_resolution'] = self.conflict_resolution
-            self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths()
+            self.config_data["conflict_resolution_json_files"] = self.conflict_resolution_page.get_json_file_paths(self.conflict_resolution)
 
             if not self.conflict_resolution:
                 self.config_data['tristate_checkboxes'] = self.cbox_page.tristate_checkboxes
@@ -1105,7 +1107,7 @@ class ConfigurationWizard(QWizard):
             self.settings.setValue("backup_interval", self.backup_interval)
             self.settings.setValue('tristate_checkboxes', self.tristate_checkboxes)
             self.settings.setValue('conflict_resolution', self.conflict_resolution)
-            self.settings.setValue('conflict_resolution_json_files', self.conflict_resolution_page.get_json_file_paths())
+            self.settings.setValue('conflict_resolution_json_files', self.conflict_resolution_page.get_json_file_paths(self.conflict_resolution))
 
             # Save the config file
             with open(os.path.normpath(os.path.join(os.path.abspath(resource_dir), self.config_filename)), 'w') as f:
