@@ -244,15 +244,14 @@ def convert_to_checkstate(value: int) -> Qt.CheckState:
     :return: The converted value.
     :rtype: Qt.CheckState
     """
-    if value == 0:
+    if int(value) == 0:
         return Qt.CheckState.Unchecked
-    elif value == 1:
+    elif int(value) == 1:
         return Qt.CheckState.PartiallyChecked
-    elif value == 2:
+    elif int(value) == 2:
         return Qt.CheckState.Checked
     else:
-        # Handle invalid values or default case
-        return Qt.CheckState.Unchecked
+        raise("Invalid value for tri-state checkbox:", value)
 
 
 def create_icns(

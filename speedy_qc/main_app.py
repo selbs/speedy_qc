@@ -1490,6 +1490,7 @@ class MainApp(QMainWindow):
                                                                                   .get("checkbox_values", 0) \
                                                                                   .get(filename, 0) \
                                                                                   .get(cbox, 0)))
+
                 if (self.initial_annot_checkboxes[cbox].checkState() == self.initial_annot2_checkboxes[cbox].checkState()):
                     self.checkboxes[cbox].setCheckState(self.initial_annot_checkboxes[cbox].checkState())
                 else:
@@ -1709,6 +1710,7 @@ class MainApp(QMainWindow):
             self.file_idx_to_conflict_idx = []
             self.conflict_idx_to_file_idx = []
             conflict_idx = 0
+
             for filename in self.file_list:
                 has_conflict = False
                 # for any checkbox_values that dont have conflicts, set the self.checkbox_values to the value of annotator 1
@@ -1764,7 +1766,7 @@ class MainApp(QMainWindow):
                 for cbox, value in entry['checkboxes'].items():
                     if filename not in annotator_dict["checkbox_values"]:
                         annotator_dict["checkbox_values"][filename] = {}
-                    annotator_dict["checkbox_values"][filename][cbox] = value
+                    annotator_dict["checkbox_values"][filename][cbox] = int(value)
             annotator_dict["bboxes"][filename] = {}
             if 'bboxes' in entry:
                 for finding, coord_sets in entry['bboxes'].items():
